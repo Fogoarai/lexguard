@@ -18,8 +18,9 @@ The shared core is `domain.py`, `ports.py`, `guard.py`, `settings.py`, `crypto.p
 `storage.py`, `documents.py`, `rut.py`, `tokens.py`, `synthetic.py`, `testing.py`, `errors.py`.
 Feature work lives in its own package (`deid/`, `access/`, `audit/`, `rag/`, `egress/`,
 `training/`, `analytics/`, `rights/`) and depends on other features only through `ports.py`.
-A feature branch does not edit the core, `pyproject.toml`, `README.md` or another feature's
+A feature does not edit the core, `pyproject.toml`, `README.md` or another feature's
 package; if the core is missing something, report it instead.
+`pipeline.py`, `workspace.py` and `demo.py` are the only modules that wire features together.
 
 ## Guard requests
 
@@ -32,7 +33,7 @@ Every feature asks the `Guard` with these shapes; `Resource.matter_id` is always
 | Retrieve chunks | `RETRIEVE` | `SERVING` | caller's, per (matter, sensitivity) |
 | Re-identify an answer | `REIDENTIFY` | `SERVING` | same as the retrieve |
 | Send a prompt to a model | `EGRESS` | `SERVING` | same principal and compartment as the retrieve |
-| Export training data | `EXPORT_TRAINING` | `DEIDENTIFIED` | `MODEL_DEVELOPMENT` |
+| Export or load training data | `EXPORT_TRAINING` | `DEIDENTIFIED` | `MODEL_DEVELOPMENT` |
 | Aggregate | `AGGREGATE` | `DEIDENTIFIED` | `ANALYTICS` |
 | Locate a data subject | `READ_DEIDENTIFIED` | `DEIDENTIFIED` | `DATA_SUBJECT_REQUEST` |
 | Erase a data subject | `ERASE` | `DEIDENTIFIED` | `DATA_SUBJECT_REQUEST` |

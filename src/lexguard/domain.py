@@ -63,6 +63,7 @@ class Purpose(StrEnum):
     ANALYTICS = "analytics"
     DATA_SUBJECT_REQUEST = "data_subject_request"
     SECURITY_AUDIT = "security_audit"
+    RETENTION = "retention"
 
 
 class Obligation(StrEnum):

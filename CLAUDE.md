@@ -21,6 +21,26 @@ Feature work lives in its own package (`deid/`, `access/`, `audit/`, `rag/`, `eg
 A feature branch does not edit the core, `pyproject.toml`, `README.md` or another feature's
 package; if the core is missing something, report it instead.
 
+## Guard requests
+
+Every feature asks the `Guard` with these shapes; `Resource.matter_id` is always set.
+
+| Operation | Action | Zone | Purpose |
+| --- | --- | --- | --- |
+| Land a document | `INGEST` | `RAW` | one the matter permits |
+| Read raw to de-identify | `READ_RAW` | `RAW` | one the matter permits |
+| Retrieve chunks | `RETRIEVE` | `SERVING` | caller's, per (matter, sensitivity) |
+| Re-identify an answer | `REIDENTIFY` | `SERVING` | same as the retrieve |
+| Send a prompt to a model | `EGRESS` | `SERVING` | same principal and compartment as the retrieve |
+| Export training data | `EXPORT_TRAINING` | `DEIDENTIFIED` | `MODEL_DEVELOPMENT` |
+| Aggregate | `AGGREGATE` | `DEIDENTIFIED` | `ANALYTICS` |
+| Locate a data subject | `READ_DEIDENTIFIED` | `DEIDENTIFIED` | `DATA_SUBJECT_REQUEST` |
+| Erase a data subject | `ERASE` | `DEIDENTIFIED` | `DATA_SUBJECT_REQUEST` |
+| Close a matter | `ERASE` | `RAW` | `RETENTION` |
+
+`DATA_SUBJECT_REQUEST`, `SECURITY_AUDIT` and `RETENTION` are statutory: they do not need to
+appear in `Matter.purposes`.
+
 ## Commands
 
 ```

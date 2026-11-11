@@ -5,12 +5,28 @@ from enum import StrEnum
 from typing import Self
 
 
+class ModelLocation(StrEnum):
+    LOCAL = "local"
+    PRIVATE_CLOUD = "private_cloud"
+    EXTERNAL = "external"
+
+
 class Boundary(StrEnum):
     """How far data may travel. The strictest mode is the default."""
 
     LOCAL_ONLY = "local_only"
     PRIVATE_CLOUD = "private_cloud"
     DEIDENTIFIED_EGRESS = "deidentified_egress"
+
+    def admits(self, location: ModelLocation) -> bool:
+        return location in _ADMITTED[self]
+
+
+_ADMITTED = {
+    Boundary.LOCAL_ONLY: {ModelLocation.LOCAL},
+    Boundary.PRIVATE_CLOUD: {ModelLocation.LOCAL, ModelLocation.PRIVATE_CLOUD},
+    Boundary.DEIDENTIFIED_EGRESS: set(ModelLocation),
+}
 
 
 @dataclass(frozen=True, slots=True)

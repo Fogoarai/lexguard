@@ -3,7 +3,8 @@ from typing import Protocol
 
 import numpy as np
 
-from lexguard.domain import AccessRequest, AuditEvent, Decision, Document, PiiSpan
+from lexguard.domain import AccessRequest, AuditEvent, Decision, Document, PiiKind, PiiSpan
+from lexguard.settings import ModelLocation
 
 
 class PolicyDecisionPoint(Protocol):
@@ -22,12 +23,20 @@ class Deidentifier(Protocol):
     def reidentify(self, text: str, matter_id: str) -> str: ...
 
 
+class TokenVault(Protocol):
+    def token_for(self, kind: PiiKind, value: str, matter_id: str) -> str: ...
+
+    def reveal(self, token: str, matter_id: str) -> str: ...
+
+    def forget(self, token: str, matter_id: str) -> None: ...
+
+
 class Embedder(Protocol):
     def embed(self, texts: Sequence[str]) -> np.ndarray: ...
 
 
 class LanguageModel(Protocol):
     name: str
-    external: bool
+    location: ModelLocation
 
     def complete(self, prompt: str) -> str: ...

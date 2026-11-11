@@ -15,7 +15,7 @@ Privacy concept for RAG and model training on a law firm's data lake. See `READM
 ## Module ownership
 
 The shared core is `domain.py`, `ports.py`, `guard.py`, `settings.py`, `crypto.py`,
-`storage.py`, `rut.py`, `tokens.py`, `synthetic.py`, `testing.py`, `errors.py`.
+`storage.py`, `documents.py`, `rut.py`, `tokens.py`, `synthetic.py`, `testing.py`, `errors.py`.
 Feature work lives in its own package (`deid/`, `access/`, `audit/`, `rag/`, `egress/`,
 `training/`, `analytics/`, `rights/`) and depends on other features only through `ports.py`.
 A feature branch does not edit the core, `pyproject.toml`, `README.md` or another feature's

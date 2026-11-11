@@ -51,7 +51,7 @@ which matter and zone) followed by an audit record, before anything is read.
 | Path | Responsibility | Status |
 | --- | --- | --- |
 | `domain.py`, `ports.py`, `guard.py`, `settings.py` | Shared vocabulary, protocols, enforcement point, trust boundary | done |
-| `crypto.py`, `storage.py` | Per-matter envelope encryption, zoned encrypted store, crypto-shredding | done |
+| `crypto.py`, `storage.py`, `documents.py` | Per-matter envelope encryption, zoned encrypted store, crypto-shredding | done |
 | `rut.py`, `tokens.py` | RUT validation, pseudonym token format | done |
 | `synthetic.py`, `testing.py` | Labeled synthetic corpus, in-memory fakes | done |
 | `deid/` | PII recognizers for Chilean legal text, pseudonymizer, token vault, residual scan | planned |

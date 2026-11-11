@@ -3,7 +3,7 @@ import pytest
 from lexguard.domain import AccessRequest, Action, Principal, Purpose, Resource, Role, Zone
 from lexguard.errors import AccessDenied
 from lexguard.guard import Guard
-from lexguard.settings import Boundary, Settings
+from lexguard.settings import Boundary, ModelLocation, Settings
 from lexguard.testing import AllowAll, DenyAll, MembershipPolicy, MemoryAuditLog
 
 LAWYER = Principal("lawyer-1", Role.LAWYER, frozenset({"M-001"}))
@@ -39,6 +39,18 @@ def test_evaluate_does_not_raise():
 
 def test_settings_default_to_the_strictest_boundary():
     assert Settings.from_env({}).boundary is Boundary.LOCAL_ONLY
+
+
+@pytest.mark.parametrize(
+    ("boundary", "admitted"),
+    [
+        (Boundary.LOCAL_ONLY, {ModelLocation.LOCAL}),
+        (Boundary.PRIVATE_CLOUD, {ModelLocation.LOCAL, ModelLocation.PRIVATE_CLOUD}),
+        (Boundary.DEIDENTIFIED_EGRESS, set(ModelLocation)),
+    ],
+)
+def test_boundary_admits_locations(boundary, admitted):
+    assert {location for location in ModelLocation if boundary.admits(location)} == admitted
 
 
 def test_settings_read_the_environment():

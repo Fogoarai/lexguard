@@ -1,0 +1,148 @@
+Hand-written legal texts with [[KIND|text]] labels. Every person, company, identifier and case is invented.
+=== dev/escritura
+REPERTORIO N° 4.512-2023
+
+COMPRAVENTA
+
+En Valparaíso, República de Chile, a tres de abril de dos mil veintitrés, ante mí, [[PERSON|Jorge Andrés Lagos Ibáñez]], Notario Público Titular de la Segunda Notaría de Valparaíso, comparecen: doña [[PERSON|Ana María Fuentes Leiva]], chilena, casada, abogada, cédula nacional de identidad número [[RUT|9.876.543-3]], domiciliada en [[ADDRESS|Pasaje Los Aromos N° 45, depto. 302, comuna de Viña del Mar]]; y don [[PERSON|Pedro Pablo del Río Aguirre]], chileno, soltero, ingeniero, RUN [[RUT|15432109-8]], domiciliado en [[ADDRESS|calle Condell 1190, oficina 61, Valparaíso]], en representación de [[ORGANIZATION|Sociedad Comercial Los Boldos Limitada]], rol único tributario [[RUT|76.543.210-3]], ambos mayores de edad, quienes acreditan su identidad con las cédulas citadas y exponen:
+
+PRIMERO: La señora [[PERSON|Fuentes]] es dueña del inmueble ubicado en [[ADDRESS|Avenida Libertad 2345, Viña del Mar]], inscrito a fojas 1234 número 987 del Registro de Propiedad del Conservador de Bienes Raíces de Viña del Mar del año 2015.
+
+SEGUNDO: El precio de la compraventa es la suma de 4.500 Unidades de Fomento, que el comprador paga mediante transferencia a la cuenta corriente del Banco del Sur N° [[BANK_ACCOUNT|71-23456-8]] de la vendedora.
+=== dev/demanda
+PROCEDIMIENTO: Ordinario de mayor cuantía
+MATERIA: Indemnización de perjuicios
+DEMANDANTE: [[PERSON|ROSA ELENA CAMPOS VERGARA]]
+RUT: [[RUT|12.345.678-5]]
+ABOGADO PATROCINANTE: [[PERSON|FELIPE ANTONIO BRAVO LEAL]]
+DEMANDADO: [[ORGANIZATION|COMERCIAL E INDUSTRIAL TRES PINOS S.A.]]
+RUT: [[RUT|77.123.456-9]]
+
+S.J.L. EN LO CIVIL
+
+[[PERSON|FELIPE ANTONIO BRAVO LEAL]], abogado, en representación de doña [[PERSON|ROSA ELENA CAMPOS VERGARA]], pensionada, ambos domiciliados para estos efectos en [[ADDRESS|Huérfanos 835, oficina 1202, Santiago]], a US. respetuosamente digo:
+
+Que vengo en deducir demanda en contra de [[ORGANIZATION|COMERCIAL E INDUSTRIAL TRES PINOS S.A.]], representada por su gerente general don [[PERSON|Hernán Ossandón Vial]], ambos con domicilio en [[ADDRESS|Camino a Melipilla 15200, Maipú]], en autos Rol [[CASE_NUMBER|C-15.234-2022]] del 12° Juzgado Civil de Santiago, acumulados a la causa RIT [[CASE_NUMBER|C-881-2021]]. La Corte de Apelaciones de Santiago, en recurso Rol N° [[CASE_NUMBER|4521-2023]], confirmó la medida. Conforme al artículo 2314 del Código Civil y a la Ley N° 19.496, la demandada debe indemnizar. La señora [[PERSON|Campos]] fue atendida en el Hospital Regional.
+=== dev/correo
+Hola [[PERSON|Cata]],
+
+Te cuento que ayer hablé con [[PERSON|Tomás Echeverría]] de [[ORGANIZATION|Aguas del Valle]] y quedamos en juntarnos el martes en Puerto Varas. Su celular es [[PHONE|9 8765 4321]] y el fijo de la oficina [[PHONE|22 345 6789]]. Me pidió que le mandemos el borrador a [[EMAIL|techeverria@aguasdelvalle.example]] con copia a [[PERSON|Macarena]] ([[EMAIL|m.lopez@aguasdelvalle.example]]).
+
+Ojo que el finiquito de [[PERSON|Juan Carlos Pérez-Cotapos]] sigue pendiente; el Sr. [[PERSON|Pérez-Cotapos]] reclamó ante la Inspección del Trabajo. Depositar en cuenta vista [[BANK_ACCOUNT|12345678]] del Banco del Sur, RUT [[RUT|8.765.432-K]].
+
+Un abrazo,
+[[PERSON|Nico]]
+[[PERSON|Nicolás Undurraga M.]]
+Socio | [[ORGANIZATION|Undurraga & Cía. Abogados]]
+[[ADDRESS|Av. Isidora Goyenechea 3000, piso 15, Las Condes]]
+[[PHONE|+56 2 2345 6789]]
+=== dev/clausulas
+El Arrendatario se obliga a restituir el Inmueble en la Fecha de Término. Para todos los efectos, se entenderá por Día Hábil cualquier día que no sea sábado, domingo o festivo en Santiago de Chile. Las Partes fijan domicilio en la ciudad de Santiago y se someten a la competencia de sus Tribunales Ordinarios de Justicia. Las notificaciones se enviarán a [[ORGANIZATION|Constructora e Inmobiliaria Río Claro SpA]], atención Sra. [[PERSON|Paula Riquelme]], [[ADDRESS|Los Militares 5001, oficina 402, Las Condes]]. El Banco de Crédito del Sur actuará como Banco Agente. Según informó el Servicio de Impuestos Internos, la sociedad [[ORGANIZATION|Inversiones San Pedro de Atacama Ltda.]] registra deuda. Carabineros de Chile y la Policía de Investigaciones concurrieron a Punta Arenas.
+=== dev/finiquito
+FINIQUITO DE CONTRATO DE TRABAJO
+
+En Concepción, a 30 de septiembre de 2024, entre [[ORGANIZATION|Servicios Logísticos del Biobío SpA]], RUT [[RUT|76.891.234-3]], representada por doña [[PERSON|Carolina Andrea Sanhueza Parra]], cédula de identidad N° [[RUT|13.987.654-7]], ambas domiciliadas en [[ADDRESS|Avenida Arturo Prat 1050, Concepción]], en adelante "el empleador", y don [[PERSON|Luis Alberto Inostroza Carrasco]], cédula de identidad N° [[RUT|17.456.321-7]], domiciliado en [[ADDRESS|Pasaje Los Copihues 221, Hualpén]], en adelante "el trabajador", se deja constancia de lo siguiente:
+
+PRIMERO: El trabajador prestó servicios como conductor desde el 1 de marzo de 2019 hasta el 27 de septiembre de 2024, fecha en que su contrato terminó por la causal del artículo 161 del Código del Trabajo.
+
+SEGUNDO: El señor [[PERSON|Inostroza]] declara recibir en este acto la suma de $3.250.000 mediante depósito en su cuenta RUT N° [[BANK_ACCOUNT|17456321]] del Banco del Sur, y no tener reclamo alguno que formular. El finiquito fue ratificado ante el ministro de fe de la Inspección del Trabajo de Concepción.
+=== dev/garantia
+EN LO PRINCIPAL: Solicita audiencia de revisión de medida cautelar. OTROSÍ: Acompaña documentos.
+
+JUZGADO DE GARANTÍA DE TEMUCO
+
+[[PERSON|MARCELA PAZ HENRÍQUEZ TOLEDO]], abogada, defensora penal privada, por el imputado [[PERSON|Jonathan Esteban Quilodrán Meza]], en causa RUC [[CASE_NUMBER|2300456789-1]], RIT [[CASE_NUMBER|2145-2023]], a US. respetuosamente digo:
+
+Que mi representado se encuentra sujeto a prisión preventiva desde el 14 de mayo de 2023. Su pareja, [[PERSON|Yasna Belén Huenchullán]], y su madre, doña [[PERSON|Rosa Meza Catrileo]], pueden recibirlo en el domicilio de [[ADDRESS|calle Las Quilas 0345, Temuco]]. Para coordinar, el teléfono de la familia es [[PHONE|45 221 3344]] y mi correo es [[EMAIL|mhenriquez@defensa-sur.example]].
+
+POR TANTO, ruego a US. acceder a lo solicitado.
+=== dev/directorio
+ACTA DE SESIÓN EXTRAORDINARIA DE DIRECTORIO
+[[ORGANIZATION|INVERSIONES Y RENTAS QUILLAYES S.A.]]
+
+En Santiago, a 12 de agosto de 2024, siendo las 9:30 horas, en las oficinas de la sociedad ubicadas en [[ADDRESS|Av. Presidente Riesco 5561, piso 18, Las Condes]], se reunió el directorio con la asistencia de los señores [[PERSON|Gonzalo Irarrázabal Covarrubias]], quien presidió, [[PERSON|María Ignacia Larraín Bulnes]] y [[PERSON|Rodrigo Yáñez]]. Actuó como secretario el abogado [[PERSON|Andrés Tagle]].
+
+El presidente informó que [[ORGANIZATION|Quillayes]] recibió una carta de [[ORGANIZATION|Fondo de Inversión Privado Araucaria]], firmada por su gerente Sr. [[PERSON|Dieter von Plessing]], ofreciendo adquirir el 40% de las acciones de la filial [[ORGANIZATION|Agrícola Santa Elvira Limitada]]. El directorio acordó, con el voto en contra de la señora [[PERSON|Larraín]], facultar a don [[PERSON|Gonzalo Irarrázabal]] para negociar. Cualquier consulta debe dirigirse a [[EMAIL|directorio@quillayes.example]].
+=== dev/mensaje
+[[PERSON|Pancho]]: hablé recién con la señora [[PERSON|Gladys]] del condominio. Dice que el arrendatario del 504, un tal [[PERSON|Kevin Soto]], no paga desde marzo y que su aval es la mamá, Sra. [[PERSON|Bernardita Opazo Riffo]], rut [[RUT|7894561-3]]. La administración ([[ORGANIZATION|Administradora Edificios Plaza Ltda.]], fono [[PHONE|2 2987 6543]]) tiene el contrato. [[PERSON|Kevin]] trabaja en [[ORGANIZATION|Maderas Lonquimay]] y vive ahora en [[ADDRESS|Los Carrera 1432 depto 12, Quilpué]]. Mándale la carta a [[EMAIL|kevin.soto.r@correo.example]] y cc a [[EMAIL|gladys.admin@edificiosplaza.example]]. Si no contesta lo demandamos en el 2° Juzgado Civil de Viña, rol aún no asignado.
+Slds, [[PERSON|Javi]]
+=== dev/mandato
+MANDATO JUDICIAL
+
+Por el presente instrumento, [[ORGANIZATION|Importadora y Distribuidora Nórdica E.I.R.L.]], rol único tributario N° [[RUT|76.012.345-5]], representada por su titular don [[PERSON|Björn Åke Lindqvist O'Ryan]], cédula de identidad para extranjeros N° [[RUT|14.725.836-4]], ambos con domicilio en [[ADDRESS|Camino El Alba 9500, casa 7, Las Condes]], confiere mandato judicial amplio a los abogados [[PERSON|Francisca De la Maza Urrutia]] y [[PERSON|José Tomás Errázuriz Mc-Kay]], ambos del estudio [[ORGANIZATION|De la Maza & Errázuriz]], con oficinas en [[ADDRESS|Isidora Goyenechea 2939, of. 801]], para que la representen en el juicio arbitral Rol CAM N° [[CASE_NUMBER|5123-2023]] seguido ante el árbitro don [[PERSON|Raimundo Echenique Salas]].
+=== dev/carta
+Santiago, 5 de noviembre de 2024
+
+Señor
+[[PERSON|Cristian Marcelo Oyarzún Gallardo]]
+[[ADDRESS|Los Olmos 2278, Macul]]
+Presente
+
+De nuestra consideración:
+
+Comunicamos a usted que [[ORGANIZATION|Alimentos Frutillar S.A.]] ha resuelto poner término a su contrato de trabajo a contar del 30 de noviembre de 2024, por la causal de necesidades de la empresa. Sus cotizaciones previsionales se encuentran pagadas, según certificado de la institución previsional. El pago del finiquito se hará por transferencia a su cuenta corriente N° [[BANK_ACCOUNT|0-070-12345-6]] del Banco del Pacífico Sur.
+
+Para cualquier consulta comuníquese con [[PERSON|Daniela]], de Recursos Humanos, al anexo 214 o al [[PHONE|+56 2 2555 0199]].
+
+Saluda atentamente,
+
+[[PERSON|Patricio Elgueta S.]]
+Gerente de Personas
+[[ORGANIZATION|Alimentos Frutillar S.A.]]
+c.c.: Inspección del Trabajo
+=== heldout/audiencia
+ACTA DE AUDIENCIA PREPARATORIA
+
+Puerto Montt, veintidós de enero de dos mil veinticinco.
+
+RIT: [[CASE_NUMBER|O-312-2024]]
+RUC: [[CASE_NUMBER|24-4-0567891-2]]
+Juez: Sra. [[PERSON|Paulina Andrea Mansilla Oyarzo]]
+Demandante: [[PERSON|Héctor Raúl Vargas Soto]], RUT [[RUT|11.222.333-9]]
+Abogado demandante: [[PERSON|Ximena Low Cárcamo]]
+Demandada: [[ORGANIZATION|Salmones Reloncaví SpA]], RUT [[RUT|77.654.321-7]]
+Abogado demandada: [[PERSON|Sergio Maldonado]]
+
+Se inicia la audiencia a las 09:15 horas. El tribunal llama a las partes a conciliación, la que no se produce. La demandada ofrece como testigos a don [[PERSON|Bernardo Triviño]] y a doña [[PERSON|Elsa Uribe Barría]], ambos domiciliados en [[ADDRESS|Ruta 5 Sur km 1023, Puerto Montt]]. El demandante señala como forma de notificación el correo [[EMAIL|hvargas1978@correo.example]].
+=== heldout/servicios
+CONTRATO DE PRESTACIÓN DE SERVICIOS
+
+En Antofagasta, a 2 de mayo de 2024, entre [[ORGANIZATION|Minera Sierra Áspera S.C.M.]], rol único tributario número [[RUT|96.521.450-K]], representada por su gerente de abastecimiento, don [[PERSON|Álvaro Ignacio Cortés-Monroy Pizarro]], cédula de identidad número [[RUT|10.234.567-3]], ambos domiciliados en [[ADDRESS|Avenida Balmaceda 2472, piso 9, Antofagasta]], en adelante "la Mandante"; y [[ORGANIZATION|Servicios de Ingeniería Tocopilla Limitada]], RUT [[RUT|76.891.234-3]], representada por doña [[PERSON|Yolanda del Carmen Araya Araya]], cédula de identidad [[RUT|6.543.219-6]], con domicilio en [[ADDRESS|calle Sucre 311, oficina 5, Antofagasta]], en adelante "el Contratista", se ha convenido lo siguiente:
+
+1. El Contratista prestará servicios de mantención en la faena Sierra Áspera. El administrador del contrato por la Mandante será el Sr. [[PERSON|Cortés-Monroy]]; por el Contratista, la señora [[PERSON|Araya]] ([[EMAIL|yaraya@sit-ingenieria.example]], celular [[PHONE|+56 9 5555 0142]]).
+
+2. Los pagos se efectuarán a treinta días mediante transferencia a la cuenta corriente número [[BANK_ACCOUNT|0012345678]] que el Contratista mantiene en el Banco del Norte.
+=== heldout/diligencia
+Asunto: RE: due diligence [[ORGANIZATION|Los Maitenes]]
+
+Vale, gracias. Revisé la carpeta y hay tres temas:
+
+1) El poder de [[PERSON|Ricardo Schmidt]] está vencido; hay que pedirle uno nuevo a la notaría de Osorno. Su secretaria ([[PERSON|Marta]], anexo 12) dice que él vuelve el lunes.
+2) La hipoteca a favor de [[ORGANIZATION|Cooperativa de Ahorro Lago Ranco]] sigue inscrita. Hablé con el ejecutivo, [[PERSON|Diego Carrillo Vera]], [[EMAIL|dcarrillo@lagoranco.example]], tel. [[PHONE|64 223 4455]].
+3) El vendedor, [[ORGANIZATION|Agrícola y Forestal Los Maitenes Ltda.]], tiene un juicio con un ex trabajador ([[PERSON|Segundo Nahuelpán]]), causa [[CASE_NUMBER|T-54-2023]] del Juzgado de Letras del Trabajo de Osorno.
+
+Te llamo en la tarde. Si no me ubicas, mi número nuevo es el [[PHONE|9 4444 0187]].
+
+[[PERSON|Trini]]
+=== heldout/constitucion
+Comparecen: uno) don [[PERSON|Maximiliano Andrés Rojas-Vío Dittborn]], chileno, casado, empresario, cédula de identidad número [[RUT|14.725.836-4]]; dos) doña [[PERSON|Isidora Paz Zegers Montt]], chilena, soltera, diseñadora, cédula de identidad número [[RUT|19.283.746-4]]; y tres) [[ORGANIZATION|Inversiones El Quisco SpA]], sociedad del giro de su denominación, rol único tributario número [[RUT|76.012.345-5]], representada, según se acreditará, por don [[PERSON|Maximiliano Andrés Rojas-Vío Dittborn]], ya individualizado; todos domiciliados para estos efectos en [[ADDRESS|Avenida Nueva Costanera 3698, oficina 402, comuna de Vitacura, Región Metropolitana]]; los comparecientes mayores de edad, quienes acreditan su identidad con las cédulas antes citadas, y exponen: que vienen en constituir una sociedad por acciones que se denominará "[[ORGANIZATION|Café Zegers SpA]]". El capital será enterado en la cuenta corriente N° [[BANK_ACCOUNT|987-654321-0]] del Banco del Sur. El primer gerente general será doña [[PERSON|Isidora Zegers]].
+=== heldout/cobranza
+Viña del Mar, 14 de marzo de 2025
+
+Señora
+[[PERSON|Jacqueline Roxana Tapia Bahamondes]]
+[[ADDRESS|Calle 5 Norte 842, departamento 1103
+Viña del Mar]]
+
+Ref.: Deuda por gastos comunes Edificio Mirador del Estero
+
+Estimada señora [[PERSON|Tapia]]:
+
+En representación de la [[ORGANIZATION|Comunidad Edificio Mirador del Estero]], RUT [[RUT|65.123.789-0]], informo a usted que registra una deuda de $1.874.320 por gastos comunes impagos entre junio de 2024 y febrero de 2025. De no regularizar su situación dentro de diez días, iniciaremos cobranza judicial ante el Juzgado de Policía Local competente.
+
+Puede pagar por transferencia a la cuenta corriente N° [[BANK_ACCOUNT|22-10045-9]] del Banco del Sur, a nombre de la Comunidad, enviando el comprobante a [[EMAIL|cobranza@estudiomirador.example]], o comunicarse con la suscrita al [[PHONE|32 268 9900]].
+
+Atentamente,
+
+[[PERSON|Fernanda Olguín P.]]
+Abogada

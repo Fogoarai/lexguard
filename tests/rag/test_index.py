@@ -1,4 +1,5 @@
 from dataclasses import replace
+from random import Random
 
 import numpy as np
 import pytest
@@ -171,6 +172,67 @@ def test_documents_can_be_replaced_and_forgotten(guard_with, documents, corpus):
     hits = index.search(RENT, lawyer, Purpose.LEGAL_ADVICE, k=100).hits
     assert hits
     assert "M-001" not in {hit.chunk.matter_id for hit in hits}
+
+
+def test_a_document_repeated_in_one_batch_is_indexed_once(guard_with, documents, corpus):
+    stale = replace(documents[0], text="Borrador sin la cláusula de renta mensual.")
+    index = build(guard_with(AllowAll()), [stale, documents[0], documents[0]])
+    once = build(guard_with(AllowAll()), documents[:1])
+    lawyer = corpus.principal("lawyer-1")
+
+    assert len(index) == len(once)
+    assert ranking(index.search(RENT, lawyer, Purpose.LEGAL_ADVICE)) == ranking(
+        once.search(RENT, lawyer, Purpose.LEGAL_ADVICE)
+    )
+
+
+def test_a_failed_embedding_leaves_the_index_as_it_was(guard_with, documents, corpus):
+    class Unreliable(HashingEmbedder):
+        down = False
+
+        def embed(self, texts):
+            if self.down:
+                raise ConnectionError("embedder is down")
+            return super().embed(texts)
+
+    embedder = Unreliable()
+    index = SecureIndex(embedder, guard_with(AllowAll()))
+    index.add(documents)
+    lawyer = corpus.principal("lawyer-1")
+    before = ranking(index.search(RENT, lawyer, Purpose.LEGAL_ADVICE, k=50))
+
+    embedder.down = True
+    with pytest.raises(ConnectionError):
+        index.add([replace(documents[0], text="Nueva versión del contrato.")])
+    embedder.down = False
+
+    assert ranking(index.search(RENT, lawyer, Purpose.LEGAL_ADVICE, k=50)) == before
+
+
+@pytest.mark.parametrize("seed", range(8))
+def test_trimming_holds_for_any_set_of_allowed_compartments(guard_with, documents, corpus, seed):
+    rng = Random(seed)
+    compartments = sorted({(doc.matter_id, doc.sensitivity) for doc in documents})
+    allowed = set(rng.sample(compartments, rng.randrange(len(compartments) + 1)))
+
+    def decide(request):
+        return Decision((request.resource.matter_id, request.resource.sensitivity) in allowed, "x")
+
+    shuffled = rng.sample(documents, len(documents))
+    whole_lake = build(guard_with(decide), shuffled)
+    allowed_only = build(
+        guard_with(AllowAll()),
+        [doc for doc in shuffled if (doc.matter_id, doc.sensitivity) in allowed],
+    )
+    lawyer = corpus.principal("lawyer-1")
+
+    for question in (RENT, NOTICES, "despido injustificado", "oferta de avenimiento"):
+        for k in (1, 4, 50):
+            trimmed = whole_lake.search(question, lawyer, Purpose.LEGAL_ADVICE, k=k)
+            assert {(hit.chunk.matter_id, hit.chunk.sensitivity) for hit in trimmed.hits} <= allowed
+            assert ranking(trimmed) == ranking(
+                allowed_only.search(question, lawyer, Purpose.LEGAL_ADVICE, k=k)
+            )
 
 
 def test_any_embedder_can_be_plugged_in(guard_with, documents, corpus):

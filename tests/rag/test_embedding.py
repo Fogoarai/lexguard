@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 import numpy as np
 
 from lexguard.rag.embedding import HashingEmbedder, features
@@ -13,6 +16,21 @@ def test_rows_are_unit_length_and_deterministic():
     assert vectors.shape == (2, 4096)
     assert np.allclose(np.linalg.norm(vectors, axis=1), 1)
     assert np.array_equal(vectors, HashingEmbedder().embed(texts))
+
+
+def test_vectors_do_not_depend_on_the_process(monkeypatch):
+    script = (
+        "import sys; from lexguard.rag import HashingEmbedder; "
+        "sys.stdout.buffer.write(HashingEmbedder(dimensions=64).embed([sys.argv[1]]).tobytes())"
+    )
+    text = f"La renta mensual que paga {PERSON} será de $4.404.000."
+    monkeypatch.setenv("PYTHONHASHSEED", "12345")
+
+    elsewhere = subprocess.run(
+        [sys.executable, "-c", script, text], capture_output=True, check=True
+    )
+
+    assert elsewhere.stdout == HashingEmbedder(dimensions=64).embed([text]).tobytes()
 
 
 def test_dimensions_are_configurable():

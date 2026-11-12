@@ -32,13 +32,13 @@ NOT_PERSONS = _words("""
     región estado fisco poder código ley decreto reglamento constitución diario comisión
     contraloría fiscalía defensoría cámara senado congreso gobierno instituto fundación
     corporación sociedad compañía empresa hospital clínica colegio policía carabineros
-    unidad unidades chile calle avenida pasaje camino
+    unidad unidades chile calle avenida pasaje camino cuenta
 """)
 
 _UP = "A-ZÀ-ÖØ-Þ"
 _LOW = "a-zß-öø-ÿ"
 _SP = r"[ \t]+"
-_NUMBER_SIGN = r"(?:N[°ºo]\.?|[Nn]úmero|#)"
+_NUMBER_SIGN = r"(?:N(?:[°ºo]|ro)\.?|[Nn]úmero|#)"
 _TITLE_WORD = rf"(?:[{_UP}]['’])?[{_UP}][{_LOW}]+(?:-[{_UP}][{_LOW}]+)?"
 _CAPS_WORD = rf"[{_UP}]{{2,}}(?:-[{_UP}]{{2,}})?"
 _ANY_CASE_WORD = rf"[{_UP}][{_UP}{_LOW}'’-]+"
@@ -53,9 +53,10 @@ RUT_CUED = re.compile(
 
 PHONE_INTERNATIONAL = re.compile(r"(?<![\w+])\+56(?:[ ()-]{0,2}\d){9}(?!\d)")
 PHONE_MOBILE = re.compile(r"(?<![\w+-])9 ?\d{4} \d{4}(?![\w-])")
+_AREA_CODE = r"\(0?\d{1,2}\) ?"
 PHONE_CUED = re.compile(
-    r"(?i:(?<!\w)(?:tel[ée]fonos?|fonos?|celular(?:es)?|m[óo]vil|fijo|whatsapp|tel\.|cel\.))"
-    r"[^\d\n+]{0,25}?(?P<pii>(?:\d[ -]?){7,8}\d)(?![\w-])"
+    r"(?i:(?<!\w)(?:tel[ée]fonos?|fonos?|celular(?:es)?|m[óo]vil|fijo|whatsapp|fax|(?:tel|cel)\b\.?))"
+    rf"[^\d\n+]{{0,25}}?(?P<pii>{_AREA_CODE}(?:\d[ -]?){{5,7}}\d|(?:\d[ -]?){{7,8}}\d)(?![\w-])"
 )
 
 _SEQUENCE = r"(?:\d{1,3}\.\d{3}|\d{1,6})-(?:19|20)\d{2}"
@@ -68,7 +69,7 @@ CASE_NUMBER_CUED = re.compile(
 
 _ACCOUNT_TYPE = r"(?i:corriente|cte\.?|vista|rut|bancaria|de\s+ahorros?)"
 BANK_ACCOUNT = re.compile(
-    rf"(?i:(?<!\w)(?:cuenta|cta\.))(?:\s+{_ACCOUNT_TYPE}[^\d\n.;]{{0,40}}?"
+    rf"(?i:(?<!\w)(?:cuenta|cta\b\.?))(?:\s+{_ACCOUNT_TYPE}[^\d\n.;]{{0,40}}?"
     rf"|[^\d\n.;]{{0,40}}?{_NUMBER_SIGN}\s*|\s*:\s*)(?P<pii>\d[\d-]{{4,18}}\d)(?![\w-])"
 )
 

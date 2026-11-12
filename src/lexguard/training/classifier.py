@@ -18,6 +18,10 @@ class DpSgd:
     clip_norm: float = 1.0
     noise_multiplier: float = 1.0
 
+    def __post_init__(self) -> None:
+        if not self.clip_norm > 0 or not self.noise_multiplier >= 0:
+            raise ValueError("clip_norm must be positive and noise_multiplier non-negative")
+
 
 @dataclass(frozen=True, slots=True)
 class DpReport:
@@ -81,6 +85,10 @@ class KindClassifier:
         With `dp`, each example's gradient is clipped to `clip_norm` and Gaussian noise of
         standard deviation `noise_multiplier * clip_norm` is added to every summed lot.
         """
+        if not pairs:
+            raise ValueError("no training examples")
+        if not 0 < sampling_rate <= 1:
+            raise ValueError("sampling_rate must be in (0, 1]")
         rng = np.random.default_rng(seed)
         features = featurize([text for text, _ in pairs], n_features)
         targets = np.eye(len(KINDS))[[KINDS.index(kind) for _, kind in pairs]]

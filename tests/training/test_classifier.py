@@ -54,6 +54,25 @@ def test_dp_run_reports_its_parameters_and_no_epsilon(splits):
     assert "accountant" in str(report)
 
 
+@pytest.mark.parametrize("sampling_rate", [0.0, -1.0, 2.0])
+def test_reported_sampling_rate_must_be_the_one_applied(splits, sampling_rate):
+    train, _ = splits
+
+    with pytest.raises(ValueError, match="sampling_rate"):
+        KindClassifier.fit(train, sampling_rate=sampling_rate, dp=DpSgd())
+
+
+@pytest.mark.parametrize(("clip_norm", "noise_multiplier"), [(0.0, 1.0), (-1.0, 0.0), (1.0, -0.5)])
+def test_dp_parameters_must_describe_a_real_mechanism(clip_norm, noise_multiplier):
+    with pytest.raises(ValueError, match="clip_norm"):
+        DpSgd(clip_norm, noise_multiplier)
+
+
+def test_fit_needs_examples():
+    with pytest.raises(ValueError, match="no training examples"):
+        KindClassifier.fit([])
+
+
 def test_clipping_bounds_what_any_example_contributes(splits):
     train, _ = splits
     one_full_step = {"steps": 1, "sampling_rate": 1.0, "learning_rate": 1.0}

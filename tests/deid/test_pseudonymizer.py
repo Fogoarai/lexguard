@@ -1,3 +1,4 @@
+import unicodedata
 from dataclasses import replace
 
 import pytest
@@ -74,6 +75,45 @@ def test_spellings_of_one_entity_share_a_token(pseudonymizer, corpus):
     ]
     assert found[0] == found[3]
     assert found[1] == found[2]
+
+
+def test_capitals_without_accents_share_the_token_of_the_accented_name(pseudonymizer, corpus):
+    text = (
+        "DEMANDANTE: MARIA JOSE NUÑEZ PEÑA\nDEMANDADO: AGRICOLA PACIFICO S.A.\n\n"
+        "María José Núñez Peña demanda a Agrícola Pacífico S.A. por despido."
+    )
+    result = pseudonymizer.pseudonymize(replace(corpus.documents[0].document, text=text))
+    person, organization, same_person, same_organization = (
+        match.group() for match in tokens.find(result.text)
+    )
+    assert (tokens.kind_of(person), tokens.kind_of(organization)) == (
+        PiiKind.PERSON,
+        PiiKind.ORGANIZATION,
+    )
+    assert (person, organization) == (same_person, same_organization)
+
+
+def test_text_in_another_encoding_gets_the_same_tokens_and_is_restored_as_it_was(
+    pseudonymizer, vault, corpus
+):
+    entities = {
+        PiiKind.PERSON: "María José Núñez Peña",
+        PiiKind.RUT: "12.345.678-5",
+        PiiKind.PHONE: "+56 9 7645 3392",
+        PiiKind.ADDRESS: "Avenida Perú 123, Ñuñoa",
+    }
+    person, number, phone, address = entities.values()
+    text = f"Comparece doña {person}, RUT {number}, teléfono {phone}, domiciliada en {address}."
+    dressed = unicodedata.normalize("NFD", text).replace(" ", "\u00a0").replace("-", "\u2011")
+    document = replace(corpus.documents[0].document, text=dressed)
+
+    result = pseudonymizer.pseudonymize(document)
+
+    assert [match.group() for match in tokens.find(result.text)] == [
+        vault.token_for(kind, value, document.matter_id) for kind, value in entities.items()
+    ]
+    assert detect(result.text) == []
+    assert pseudonymizer.reidentify(result.text, document.matter_id) == dressed
 
 
 @pytest.mark.parametrize("seed", SEEDS)

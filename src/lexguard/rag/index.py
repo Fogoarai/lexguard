@@ -79,16 +79,20 @@ class SecureIndex:
         return len(self._chunks)
 
     def add(self, documents: Iterable[Document]) -> None:
-        """Index pseudonymized documents, replacing any that were indexed before."""
-        documents = list(documents)
-        for document in documents:
-            self.remove(document.matter_id, document.id)
-        chunks = [chunk for document in documents for chunk in split(document, self._max_chars)]
-        if not chunks:
-            return
-        vectors = _unit(self._embedder.embed([chunk.text for chunk in chunks]))
-        self._vectors = np.vstack((self._vectors, vectors)) if self._chunks else vectors
-        self._chunks += chunks
+        """Index pseudonymized documents, replacing any that were indexed before.
+
+        The last version of a document in the batch wins. Nothing changes if embedding fails.
+        """
+        latest = {(document.matter_id, document.id): document for document in documents}
+        chunks = [
+            chunk for document in latest.values() for chunk in split(document, self._max_chars)
+        ]
+        vectors = _unit(self._embedder.embed([chunk.text for chunk in chunks])) if chunks else None
+        for matter_id, document_id in latest:
+            self.remove(matter_id, document_id)
+        if vectors is not None:
+            self._vectors = np.vstack((self._vectors, vectors)) if self._chunks else vectors
+            self._chunks += chunks
 
     def remove(self, matter_id: str, document_id: str | None = None) -> int:
         """Forget one document, or the whole matter when no document is named."""

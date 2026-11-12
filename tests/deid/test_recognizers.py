@@ -16,6 +16,8 @@ def found(text: str, kind: PiiKind) -> list[str]:
         ("contribuyente 8.765.432-k registra deuda", ["8.765.432-k"]),
         ("(RUT: 76.543.210-3)", ["76.543.210-3"]),
         ("RUT 123456785 sin guion", ["123456785"]),
+        ("RUT 12.345.678\u20115, con guion de no separación", ["12.345.678\u20115"]),
+        ("cédula de identidad N°\u00a012.345.678-5", ["12.345.678-5"]),
     ],
 )
 def test_rut_in_dotted_and_undotted_spellings(text, expected):
@@ -42,6 +44,11 @@ def test_email():
         ("su celular es 9 8765 4321", ["9 8765 4321"]),
         ("el fijo de la oficina 22 345 6789", ["22 345 6789"]),
         ("fono 2 2987 6543)", ["2 2987 6543"]),
+        ("Teléfono (2) 2345 6789, horario de oficina", ["(2) 2345 6789"]),
+        ("fono: (032) 268 9900", ["(032) 268 9900"]),
+        ("cel 987654321", ["987654321"]),
+        ("Tel 22 345 6789 / Fax 22 345 6780", ["22 345 6789", "22 345 6780"]),
+        ("llámeme al +56\u00a09\u00a07645\u00a03392.", ["+56\u00a09\u00a07645\u00a03392"]),
     ],
 )
 def test_phone(text, expected):
@@ -50,6 +57,7 @@ def test_phone(text, expected):
 
 def test_amounts_and_plain_numbers_are_not_phones():
     assert found("pagó $9.876.543 el 9 de marzo de 2024, folio 912345678", PiiKind.PHONE) == []
+    assert found("el cartel (12) 345 6789 y el hotel 22 345 6789", PiiKind.PHONE) == []
 
 
 @pytest.mark.parametrize(
@@ -80,6 +88,9 @@ def test_statutes_and_articles_are_not_case_numbers():
         ("Cta. Cte. N° 000-12345-67", ["000-12345-67"]),
         ("depositar en cuenta vista 12345678", ["12345678"]),
         ("su cuenta RUT N° 17456321", ["17456321"]),
+        ("cta cte 12345678 del banco", ["12345678"]),
+        ("cuenta corriente Nro. 629659571", ["629659571"]),
+        ("Cuenta Corriente: 00123456", ["00123456"]),
     ],
 )
 def test_bank_account_is_anchored_on_context(text, expected):
@@ -175,6 +186,7 @@ def test_person_in_capitals_needs_a_cue(text):
         "ante la Corte de Apelaciones de Santiago y el Servicio de Impuestos Internos",
         "Señor Juez de Letras: el Sr. Gerente General no compareció.",
         "Estimados señores:",
+        "Cuenta Corriente: 00123456",
     ],
 )
 def test_capitalized_phrases_that_are_not_people(text):

@@ -10,7 +10,11 @@ from lexguard.domain import PiiKind, PiiSpan
 
 
 class Recognizer(Protocol):
-    """One source of spans. A statistical NER model plugs in by implementing this."""
+    """One source of spans. A statistical NER model plugs in by implementing this.
+
+    `text` arrives in plain form (`canonical.plain`) with pseudonym tokens blanked out,
+    and the offsets returned refer to it.
+    """
 
     def find(self, text: str) -> Iterable[PiiSpan]: ...
 

@@ -141,8 +141,35 @@ def test_stripped_final_newline_is_reported_before_it_can_corrupt_an_append(log,
         ChainedAuditLog(path, KEY)
 
 
-def test_garbage_is_reported_as_an_alteration(log, path):
-    rewrite(path, lambda lines: [*lines[:2], "not json\n", *lines[2:]])
+def reorder_keys(line: str) -> str:
+    backwards = dict(reversed(json.loads(line).items()))
+    return json.dumps(backwards, separators=(",", ":"), ensure_ascii=False) + "\n"
+
+
+@pytest.mark.parametrize(
+    "disguise",
+    [
+        lambda line: line.replace('"event":{', '"event":{"allowed":true,'),
+        lambda line: line.replace('"allowed":false', '"allowed": false'),
+        reorder_keys,
+        lambda line: line.replace("\n", "\r\n"),
+        lambda line: line.replace("\n", " \n"),
+    ],
+    ids=["shadowing duplicate key", "whitespace", "reordered keys", "crlf", "trailing blank"],
+)
+def test_edit_that_parses_to_the_same_record_is_still_an_alteration(log, path, disguise):
+    rewrite(path, lambda lines: [lines[0], disguise(lines[1]), *lines[2:]])
+    with pytest.raises(IntegrityError, match="record 2 was altered"):
+        log.verify()
+
+
+@pytest.mark.parametrize(
+    "garbage",
+    ["not json\n", "\n", "[1]\n", "{}\n", '{"mac":7}\n', "[" * 100_000 + "\n"],
+    ids=["text", "blank line", "array", "empty object", "numeric mac", "deep nesting"],
+)
+def test_garbage_is_reported_as_an_alteration(log, path, garbage):
+    rewrite(path, lambda lines: [*lines[:2], garbage, *lines[2:]])
     with pytest.raises(IntegrityError, match="record 3 was altered"):
         log.verify()
 
@@ -235,6 +262,17 @@ def test_anything_else_is_fingerprinted(path, value):
     log = ChainedAuditLog(path, KEY)
     log.record(event(value=value))
     assert log.events()[0].detail == {"value": log.fingerprint(value)}
+
+
+def test_detail_names_are_scrubbed_like_values(path):
+    log = ChainedAuditLog(path, KEY)
+    log.record(event(**{"María Soto": "3", "document": "M-001-D001"}))
+
+    assert "María" not in path.read_text(encoding="utf-8")
+    assert log.events()[0].detail == {
+        log.fingerprint("María Soto"): "3",
+        "document": "M-001-D001",
+    }
 
 
 def test_fingerprint_is_keyed_and_stable(path):

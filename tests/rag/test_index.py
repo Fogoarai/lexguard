@@ -4,8 +4,10 @@ from random import Random
 import numpy as np
 import pytest
 
-from lexguard.domain import Action, Decision, Obligation, Purpose, Sensitivity, Zone
+from lexguard.domain import Action, Decision, Obligation, PiiKind, Purpose, Sensitivity, Zone
+from lexguard.errors import EgressBlocked
 from lexguard.rag import HashingEmbedder, SecureIndex
+from lexguard.settings import ModelLocation
 from lexguard.testing import AllowAll, MembershipPolicy
 
 RENT = "¿Cuál es la renta mensual del arrendamiento?"
@@ -239,6 +241,9 @@ def test_any_embedder_can_be_plugged_in(guard_with, documents, corpus):
     class KeywordEmbedder:
         """Unnormalized on purpose: the index must not rely on unit vectors."""
 
+        name = "keyword"
+        location = ModelLocation.LOCAL
+
         def embed(self, texts):
             return np.array(
                 [
@@ -255,3 +260,87 @@ def test_any_embedder_can_be_plugged_in(guard_with, documents, corpus):
     assert all("renta" in hit.chunk.text.lower() for hit in hits)
     assert all(hit.score == pytest.approx(hits[0].score) for hit in hits)
     assert hits[0].score <= 1.0 + 1e-9
+
+
+@pytest.mark.parametrize("location", [ModelLocation.PRIVATE_CLOUD, ModelLocation.EXTERNAL])
+def test_an_embedder_that_is_not_local_is_refused(guard_with, location):
+    class Hosted(HashingEmbedder):
+        name = "hosted"
+
+    Hosted.location = location
+
+    with pytest.raises(EgressBlocked, match=f"hosted is {location}"):
+        SecureIndex(Hosted(), guard_with(AllowAll()))
+
+
+def named(corpus):
+    lease = corpus.documents[0]
+    person = next(span.text for span in lease.spans if span.kind is PiiKind.PERSON)
+    return lease.document.id, f"¿Qué sabemos de {person}?"
+
+
+def test_a_question_that_names_a_person_finds_their_passages(
+    guard_with, documents, deidentifier, corpus
+):
+    document_id, question = named(corpus)
+    lawyer = corpus.principal("lawyer-1")
+    guard = guard_with(MembershipPolicy())
+    as_asked = build(guard, documents)
+    in_tokens = build(guard, documents, deidentifier=deidentifier)
+
+    missed = as_asked.search(question, lawyer, Purpose.LEGAL_ADVICE, k=1)
+    (found,) = in_tokens.search(question, lawyer, Purpose.LEGAL_ADVICE, k=1).hits
+
+    assert found.chunk.document_id == document_id
+    assert all(found.score > hit.score for hit in missed.hits)
+    assert ranking(in_tokens.search(RENT, lawyer, Purpose.LEGAL_ADVICE)) == ranking(
+        as_asked.search(RENT, lawyer, Purpose.LEGAL_ADVICE)
+    )
+
+
+def test_a_name_cannot_be_tested_against_tokens_by_who_must_keep_pseudonyms(
+    guard_with, documents, deidentifier, corpus
+):
+    def keep_pseudonyms(request):
+        return Decision(True, "x", frozenset({Obligation.KEEP_PSEUDONYMS}))
+
+    _, question = named(corpus)
+    paralegal = corpus.principal("paralegal-1")
+    guard = guard_with(keep_pseudonyms)
+    as_asked = build(guard, documents)
+    in_tokens = build(guard, documents, deidentifier=deidentifier)
+
+    assert ranking(in_tokens.search(question, paralegal, Purpose.LEGAL_ADVICE, k=50)) == ranking(
+        as_asked.search(question, paralegal, Purpose.LEGAL_ADVICE, k=50)
+    )
+
+
+def test_a_name_is_not_rewritten_for_who_cannot_read_the_whole_matter(
+    guard_with, documents, deidentifier, corpus
+):
+    _, question = named(corpus)
+    lawyer = corpus.principal("lawyer-1")
+    guard = guard_with(no_privileged)
+    as_asked = build(guard, documents)
+    in_tokens = build(guard, documents, deidentifier=deidentifier)
+
+    retrieval = in_tokens.search(question, lawyer, Purpose.LEGAL_ADVICE, k=50)
+
+    assert ranking(retrieval) == ranking(
+        as_asked.search(question, lawyer, Purpose.LEGAL_ADVICE, k=50)
+    )
+    assert set(retrieval.wording.values()) == {question}
+
+
+def test_each_matter_is_asked_in_its_own_tokens(guard_with, documents, deidentifier, corpus):
+    document_id, question = named(corpus)
+    lawyer = corpus.principal("lawyer-1")
+    index = build(guard_with(AllowAll()), documents, deidentifier=deidentifier)
+
+    whole_lake = index.search(question, lawyer, Purpose.LEGAL_ADVICE, k=1)
+    elsewhere = index.search(question, lawyer, Purpose.LEGAL_ADVICE, matter_id="M-002", k=1)
+
+    assert [hit.chunk.document_id for hit in whole_lake.hits] == [document_id]
+    assert list(whole_lake.wording) == ["M-001"] and question not in whole_lake.wording.values()
+    assert set(elsewhere.wording.values()) <= {question}
+    assert all(hit.score < whole_lake.hits[0].score for hit in elsewhere.hits)

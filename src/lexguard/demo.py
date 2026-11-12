@@ -11,7 +11,7 @@ from lexguard.analytics import BudgetExhausted, Dimension
 from lexguard.deid import evaluate
 from lexguard.domain import PiiKind, Purpose, Zone
 from lexguard.egress import EgressGateway
-from lexguard.errors import EgressBlocked, IntegrityError
+from lexguard.errors import AccessDenied, EgressBlocked, IntegrityError
 from lexguard.rag import NO_ANSWER, Answerer
 from lexguard.rights import Identifier
 from lexguard.settings import Boundary, ModelLocation, Settings
@@ -59,7 +59,7 @@ def run(root: Path) -> None:
     _train(workspace, corpus)
     _aggregate(workspace, corpus)
     _rights(workspace, corpus)
-    _audit(workspace, root / AUDIT_LOG)
+    _audit(workspace, corpus, root / AUDIT_LOG)
 
 
 def _ingest(workspace: Workspace, corpus: Corpus) -> None:
@@ -86,9 +86,11 @@ def _ingest(workspace: Workspace, corpus: Corpus) -> None:
 
 def _retrieve(workspace: Workspace, corpus: Corpus) -> None:
     _section("Retrieve: one index, a different view per person")
+    landlord = next(s.text for s in corpus.documents[0].spans if s.kind is PiiKind.PERSON)
     cases = (
         ("lawyer-1", "M-001", PARTIES, "assigned lawyer reads names"),
         ("paralegal-1", "M-001", PARTIES, "paralegal reads pseudonyms"),
+        ("lawyer-1", "M-001", f"¿Qué cédula de identidad tiene {landlord}?", "asked by name"),
         ("lawyer-1", "M-001", STRATEGY, "privileged advice, lawyer"),
         ("paralegal-1", "M-001", STRATEGY, "privileged advice, paralegal"),
         ("lawyer-1", "M-002", PARTIES, "assigned but behind an ethical wall"),
@@ -182,7 +184,11 @@ def _rights(workspace: Workspace, corpus: Corpus) -> None:
     subject = [Identifier(PiiKind.PERSON, person), Identifier(PiiKind.RUT, rut)]
 
     location = workspace.subjects.locate(officer, subject, list(workspace.matters))
-    print(f"{person} appears in {[hit.document_id for hit in location.hits]}")
+    certain = [hit.document_id for hit in location.hits if not hit.partial]
+    print(
+        f"{person} appears in {certain}; "
+        f"partial matches left for a person to confirm: {len(location.hits) - len(certain)}"
+    )
     erasure = workspace.erase(officer, subject)
     print(f"tokens forgotten; datasets tainted: {list(erasure.tainted_datasets)}")
     try:
@@ -202,10 +208,15 @@ def _rights(workspace: Workspace, corpus: Corpus) -> None:
     print(f"lawyer-3 on M-003:\n    {answer.text}")
 
 
-def _audit(workspace: Workspace, log: Path) -> None:
-    _section("Audit: every decision recorded, tampering detected")
+def _audit(workspace: Workspace, corpus: Corpus, log: Path) -> None:
+    _section("Audit: every decision recorded, reads of the trail included, tampering detected")
+    try:
+        workspace.trail.events(corpus.principal("lawyer-1"))
+    except AccessDenied as denied:
+        print(f"lawyer-1 asks for the trail -> {denied}")
+    events = workspace.trail.events(corpus.principal("dpo-1"), denied_only=True)
+    denials = Counter(event.principal_id for event in events)
     records = workspace.audit.verify()
-    denials = Counter(event.principal_id for event in workspace.audit.events(denied_only=True))
     print(f"{records} records, chain verified; denials by principal: {dict(denials)}")
     log.write_text(log.read_text().replace('"allowed":false', '"allowed":true', 1))
     try:

@@ -29,7 +29,7 @@ def test_closed_matter_is_unreadable_even_from_a_backup(
     shutil.copytree(lake, backup)
     documents = DocumentStore(store)
 
-    closure = close_matter(store, guard, manifests, OFFICER, "M-001")
+    closure = close_matter(store, guard, training_sets, OFFICER, "M-001")
 
     assert closure.destroyed == {
         Zone.RAW: 7,
@@ -56,7 +56,7 @@ def test_closing_a_matter_taints_the_datasets_that_used_it(
     training_sets.build(SCIENTIST, corpus.matters, "ds-all")
     training_sets.build(SCIENTIST, [corpus.matter_index["M-003"]], "ds-other")
 
-    closure = close_matter(store, guard, manifests, OFFICER, "M-001")
+    closure = close_matter(store, guard, training_sets, OFFICER, "M-001")
 
     assert closure.tainted_datasets == ("ds-all",)
     assert manifests.load("ds-all").taints[0].reason == "matter closed"
@@ -65,8 +65,10 @@ def test_closing_a_matter_taints_the_datasets_that_used_it(
         training_sets.load(SCIENTIST, "ds-all")
 
 
-def test_closure_is_authorized_as_a_retention_erase_of_the_raw_zone(store, guard, manifests, audit):
-    close_matter(store, guard, manifests, OFFICER, "M-004")
+def test_closure_is_authorized_as_a_retention_erase_of_the_raw_zone(
+    store, guard, training_sets, audit
+):
+    close_matter(store, guard, training_sets, OFFICER, "M-004")
 
     (event,) = audit.events
     assert (event.action, event.zone, event.purpose, event.matter_id) == (
@@ -77,15 +79,15 @@ def test_closure_is_authorized_as_a_retention_erase_of_the_raw_zone(store, guard
     )
 
 
-def test_denied_closure_destroys_nothing(store, manifests, audit):
+def test_denied_closure_destroys_nothing(store, training_sets, audit):
     with pytest.raises(AccessDenied):
-        close_matter(store, Guard(DenyAll(), audit), manifests, OFFICER, "M-001")
+        close_matter(store, Guard(DenyAll(), audit), training_sets, OFFICER, "M-001")
 
     assert len(store.names(Zone.RAW, "M-001")) == 7
     assert DocumentStore(store).load(Zone.RAW, "M-001", "M-001-D001")
 
 
-def test_closure_that_leaves_the_key_alive_is_reported(tmp_path, guard, manifests):
+def test_closure_that_leaves_the_key_alive_is_reported(tmp_path, guard, training_sets):
     class KeepsKey(ZonedStore):
         def purge(self, matter_id):
             for zone in Zone:
@@ -98,4 +100,4 @@ def test_closure_that_leaves_the_key_alive_is_reported(tmp_path, guard, manifest
     store.put(Zone.RAW, "M-001", "doc.txt", b"contenido")
 
     with pytest.raises(ClosureIncomplete, match="raw"):
-        close_matter(store, guard, manifests, OFFICER, "M-001")
+        close_matter(store, guard, training_sets, OFFICER, "M-001")

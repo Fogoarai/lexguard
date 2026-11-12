@@ -41,7 +41,9 @@ EXPORT = (Action.EXPORT_TRAINING, Zone.DEIDENTIFIED, Purpose.MODEL_DEVELOPMENT)
 AGGREGATE = (Action.AGGREGATE, Zone.DEIDENTIFIED, Purpose.ANALYTICS)
 LOCATE = (Action.READ_DEIDENTIFIED, Zone.DEIDENTIFIED, Purpose.DATA_SUBJECT_REQUEST)
 ERASE_SUBJECT = (Action.ERASE, Zone.DEIDENTIFIED, Purpose.DATA_SUBJECT_REQUEST)
+ERASE_RAW_COPY = (Action.ERASE, Zone.RAW, Purpose.DATA_SUBJECT_REQUEST)
 CLOSE_MATTER = (Action.ERASE, Zone.RAW, Purpose.RETENTION)
+READ_TRAIL = (Action.READ_AUDIT, Zone.AUDIT, Purpose.SECURITY_AUDIT)
 
 READ_FOR_TRAINING = (Action.READ_DEIDENTIFIED, Zone.DEIDENTIFIED, Purpose.MODEL_DEVELOPMENT)
 SEND_FOR_TRAINING = (Action.EGRESS, Zone.DEIDENTIFIED, Purpose.MODEL_DEVELOPMENT)
@@ -52,7 +54,7 @@ READ_RAW_FOR_ANY_ENGAGEMENT = {(Action.READ_RAW, Zone.RAW, purpose) for purpose 
 LAWYER = {RETRIEVE, REIDENTIFY, PROMPT}
 PARALEGAL = {RETRIEVE, PROMPT}
 SCIENTIST = {READ_FOR_TRAINING, EXPORT, AGGREGATE, SEND_FOR_TRAINING}
-OFFICER = {LOCATE, ERASE_SUBJECT, SEND_FOR_SUBJECT, CLOSE_MATTER}
+OFFICER = {LOCATE, ERASE_SUBJECT, ERASE_RAW_COPY, SEND_FOR_SUBJECT, CLOSE_MATTER, READ_TRAIL}
 PIPELINE = LAND_FOR_ANY_ENGAGEMENT | READ_RAW_FOR_ANY_ENGAGEMENT
 NOTHING: set[Shape] = set()
 
@@ -225,8 +227,6 @@ def test_scientist_never_touches_raw_identities_or_privileged_content():
 def test_privacy_officer_retrieves_no_content():
     for shape in (RETRIEVE, REIDENTIFY, PROMPT, READ_RAW, EXPORT, AGGREGATE):
         assert not ask("dpo-1", shape).allowed
-    erase_raw_for_subject = (Action.ERASE, Zone.RAW, Purpose.DATA_SUBJECT_REQUEST)
-    assert ask("dpo-1", erase_raw_for_subject).reason.startswith("default-deny")
 
 
 def test_human_reads_raw_only_under_a_live_grant():
@@ -316,12 +316,12 @@ def test_egress_cannot_be_granted_on_its_own():
 
 def test_grant_lends_only_what_some_role_may_already_do():
     reidentify_for_training = (Action.REIDENTIFY, Zone.SERVING, Purpose.MODEL_DEVELOPMENT)
-    erase_raw_for_subject = (Action.ERASE, Zone.RAW, Purpose.DATA_SUBJECT_REQUEST)
+    erase_raw_for_advice = (Action.ERASE, Zone.RAW, Purpose.LEGAL_ADVICE)
     read_raw_for_audit = (Action.READ_RAW, Zone.RAW, Purpose.SECURITY_AUDIT)
 
     for who, shape, matter in [
         ("lawyer-1", reidentify_for_training, "M-001"),
-        ("engineer-1", erase_raw_for_subject, "M-001"),
+        ("engineer-1", erase_raw_for_advice, "M-001"),
         ("engineer-1", read_raw_for_audit, "M-002"),
     ]:
         decision = ask(who, shape, matter, grants=(grant(who, shape, matter),))
@@ -338,7 +338,30 @@ def test_grant_lends_only_what_some_role_may_already_do():
 def test_security_audit_opens_no_content_even_under_a_grant():
     for who, action, zone in product(CAST, Action, Zone):
         shape = (action, zone, Purpose.SECURITY_AUDIT)
-        assert not ask(who, shape, grants=(grant(who, shape),)).allowed
+        if shape != READ_TRAIL:
+            assert not ask(who, shape, grants=(grant(who, shape),)).allowed
+
+
+def test_only_the_privacy_officer_reads_the_audit_trail():
+    assert {who for who in CAST if ask(who, READ_TRAIL, matter=None).allowed} == {"dpo-1"}
+    assert ask("dpo-1", READ_TRAIL, matter=None).reason == "officer-reviews-audit-trail"
+    assert ask("lawyer-1", READ_TRAIL, matter=None).reason.startswith("default-deny")
+
+
+def test_the_audit_trail_is_scoped_by_no_matter_or_wall():
+    walled = {"M-002": replace(MATTERS["M-002"], walled_off=frozenset({"dpo-1"}))}
+
+    assert not ask("dpo-1", LOCATE, matter="M-999").allowed
+    assert ask("dpo-1", READ_TRAIL, matter="M-999").allowed
+    assert not Policy(walled).decide(request("dpo-1", LOCATE, "M-002")).allowed
+    assert Policy(walled).decide(request("dpo-1", READ_TRAIL, "M-002")).allowed
+
+
+def test_reading_the_audit_trail_cannot_be_granted():
+    lent = (grant("lawyer-1", READ_TRAIL),)
+
+    assert not ask("lawyer-1", READ_TRAIL, grants=lent).allowed
+    assert not ask("lawyer-1", READ_TRAIL, matter=None, grants=lent).allowed
 
 
 def test_grant_is_not_honored_at_a_time_without_a_timezone():

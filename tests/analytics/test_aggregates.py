@@ -103,7 +103,7 @@ def test_query_denied_everywhere_is_refused_without_spending_budget(aggregator, 
 
     with pytest.raises(AccessDenied):
         denied.count_by(SCIENTIST, corpus.matters, Dimension.KIND, 0.5)
-    assert denied.ledger.spent == 0
+    assert denied.ledger.charges == []
 
 
 def test_queries_are_refused_once_the_budget_is_spent(aggregator, corpus, noise):
@@ -116,10 +116,10 @@ def test_queries_are_refused_once_the_budget_is_spent(aggregator, corpus, noise)
         analytics.count_by(SCIENTIST, corpus.matters, Dimension.MONTH, 0.1)
 
     assert len(noise.scales) == drawn
-    assert analytics.ledger.spent == 1.0
-    assert [charge.query for charge in analytics.ledger.charges] == [
-        "count by kind",
-        "count by matter",
+    assert analytics.ledger.spent("M-001") == analytics.ledger.spent("M-003") == 1.0
+    assert [(charge.query, charge.matters) for charge in analytics.ledger.charges] == [
+        ("count by kind", ("M-001", "M-003")),
+        ("count by matter", ("M-001", "M-003")),
     ]
 
 

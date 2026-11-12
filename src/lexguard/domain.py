@@ -10,6 +10,12 @@ class Zone(StrEnum):
     DEIDENTIFIED = "deidentified"
     SERVING = "serving"
     TRAINING = "training"
+    AUDIT = "audit"
+
+    @classmethod
+    def of_matters(cls) -> tuple[Self, ...]:
+        """The zones that hold a matter's data. The audit trail belongs to none and outlives all."""
+        return tuple(zone for zone in cls if zone is not cls.AUDIT)
 
 
 class Sensitivity(StrEnum):
@@ -55,6 +61,7 @@ class Action(StrEnum):
     AGGREGATE = "aggregate"
     EGRESS = "egress"
     ERASE = "erase"
+    READ_AUDIT = "read_audit"
 
 
 class Purpose(StrEnum):

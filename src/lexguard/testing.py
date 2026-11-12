@@ -55,6 +55,12 @@ class LabelDeidentifier:
             text = text[: span.start] + token + text[span.end :]
         return replace(document, text=text)
 
+    def tokenize(self, text: str, matter_id: str) -> str:
+        known = [(v, token) for (owner, token), v in self._originals.items() if owner == matter_id]
+        for original, token in sorted(known, key=lambda pair: -len(pair[0])):
+            text = text.replace(original, token)
+        return text
+
     def reidentify(self, text: str, matter_id: str) -> str:
         return tokens.TOKEN.sub(
             lambda match: self._originals.get((matter_id, match.group()), match.group()), text

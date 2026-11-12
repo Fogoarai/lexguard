@@ -1,10 +1,13 @@
+from dataclasses import replace
+
 import pytest
 
 from lexguard import tokens
 from lexguard.analytics import BudgetExhausted, Dimension
+from lexguard.crypto import KeyRing
 from lexguard.demo import PARTIES, STRATEGY, HostedModel, run
-from lexguard.domain import PiiKind, Purpose, Sensitivity, Zone
-from lexguard.errors import EgressBlocked, IntegrityError, KeyUnavailable
+from lexguard.domain import Action, PiiKind, Purpose, Sensitivity, Zone
+from lexguard.errors import AccessDenied, EgressBlocked, IntegrityError, KeyUnavailable
 from lexguard.rag import NO_ANSWER, Answerer
 from lexguard.rights import Identifier
 from lexguard.synthetic import generate
@@ -59,6 +62,17 @@ def test_lawyer_reads_names_and_paralegal_reads_pseudonyms(workspace, corpus):
     assert not list(tokens.find(lawyer.text))
     assert not paralegal.reidentified and landlord not in paralegal.text
     assert list(tokens.find(paralegal.text))
+
+
+def test_a_person_can_be_asked_about_by_name(workspace, corpus):
+    landlord = next(s.text for s in corpus.documents[0].spans if s.kind is PiiKind.PERSON)
+    question = f"¿Qué cédula de identidad tiene {landlord}?"
+
+    lawyer = ask(workspace, corpus, "lawyer-1", question)
+    paralegal = ask(workspace, corpus, "paralegal-1", question)
+
+    assert lawyer.reidentified and landlord in lawyer.text
+    assert landlord not in paralegal.text
 
 
 def test_privileged_advice_reaches_only_the_matter_lawyer(workspace, corpus):
@@ -118,12 +132,67 @@ def test_erasing_a_person_is_irreversible_and_taints_training(workspace, corpus)
         officer, [Identifier(PiiKind.PERSON, landlord), Identifier(PiiKind.RUT, rut)]
     )
 
-    assert [hit.document_id for hit in erasure.hits] == [lease.document.id]
+    assert [hit.document_id for hit in erasure.hits if not hit.partial] == [lease.document.id]
+    assert {hit.matter_id for hit in erasure.hits} == {"M-001"}
     assert erasure.tainted_datasets == ("e2e",)
     with pytest.raises(DatasetTainted):
         workspace.training.load(scientist, "e2e")
     answer = ask(workspace, corpus, "lawyer-1", PARTIES)
     assert landlord not in answer.text and rut not in answer.text
+    by_name = ask(workspace, corpus, "lawyer-1", f"¿Qué cédula de identidad tiene {landlord}?")
+    assert landlord not in by_name.text
+
+
+def test_erasure_reaches_a_document_that_only_gives_the_surname(workspace, corpus):
+    base = corpus.documents[0].document
+    full = replace(
+        base,
+        id="M-001-X1",
+        text="Comparece doña Carolina Fuentes Lagos, cédula de identidad N° 12.345.678-5.",
+    )
+    short = replace(
+        base, id="M-001-X2", text="Según lo conversado, la señora Fuentes no aceptará la oferta."
+    )
+    bystander = replace(base, id="M-001-X3", text="El señor Pedro Vidal Tapia firmó el anexo.")
+    workspace.ingest(corpus.principal("svc-pipeline"), [full, short, bystander])
+
+    erasure = workspace.erase(
+        corpus.principal("dpo-1"),
+        [Identifier(PiiKind.PERSON, "Carolina Fuentes Lagos")],
+        remove_documents=True,
+    )
+
+    found = {hit.document_id: hit.partial for hit in erasure.hits}
+    assert (found["M-001-X1"], found["M-001-X2"]) == (False, True)
+    assert "M-001-X3" not in found
+    stored = {d.id: d.text for d in workspace.pipeline.documents.scan(Zone.DEIDENTIFIED, "M-001")}
+    assert "M-001-X1" not in stored and {"M-001-X2", "M-001-X3"} <= set(stored)
+    reidentify = workspace.deidentifier.reidentify
+    assert "Fuentes" not in reidentify(stored["M-001-X2"], "M-001")
+    assert "Pedro Vidal Tapia" in reidentify(stored["M-001-X3"], "M-001")
+    still_served = ask(workspace, corpus, "lawyer-1", "¿Quién no aceptará la oferta?")
+    assert "no aceptará la oferta" in still_served.text and "Fuentes" not in still_served.text
+
+
+def test_a_confirmed_partial_match_is_removed_from_store_and_index(workspace, corpus):
+    base = corpus.documents[0].document
+    full = replace(base, id="M-001-X1", text="Comparece doña Carolina Fuentes Lagos, abogada.")
+    short = replace(
+        base, id="M-001-X2", text="Según lo conversado, la señora Fuentes no aceptará la oferta."
+    )
+    workspace.ingest(corpus.principal("svc-pipeline"), [full, short])
+    officer = corpus.principal("dpo-1")
+    subject = [Identifier(PiiKind.PERSON, "Carolina Fuentes Lagos")]
+    located = workspace.subjects.locate(officer, subject, ["M-001"]).hits
+    reviewed = [hit for hit in located if hit.document_id == "M-001-X2"]
+
+    erasure = workspace.erase(officer, subject, remove_documents=True, confirmed=reviewed)
+
+    assert {"M-001-X1", "M-001-X2"} <= {hit.document_id for hit in erasure.removed}
+    stored = {d.id for d in workspace.pipeline.documents.scan(Zone.DEIDENTIFIED, "M-001")}
+    assert not {"M-001-X1", "M-001-X2"} & stored
+    gone = ask(workspace, corpus, "lawyer-1", "¿Quién no aceptará la oferta?")
+    assert "no aceptará la oferta" not in gone.text
 
 
 def test_closing_a_matter_leaves_nothing_readable(workspace, corpus, tmp_path):
@@ -140,15 +209,55 @@ def test_closing_a_matter_leaves_nothing_readable(workspace, corpus, tmp_path):
 def test_every_decision_is_audited_and_tampering_is_detected(workspace, corpus, tmp_path):
     before = workspace.audit.verify()
     ask(workspace, corpus, "lawyer-1", PARTIES, "M-002")
-    denials = workspace.audit.events(principal_id="lawyer-1", denied_only=True)
+    officer = corpus.principal("dpo-1")
+    denials = workspace.trail.events(officer, principal_id="lawyer-1", denied_only=True)
 
     assert workspace.audit.verify() > before
     assert denials and all("ethical-wall" in event.reason for event in denials)
+    with pytest.raises(AccessDenied):
+        workspace.trail.events(corpus.principal("lawyer-1"))
+    reads = [e for e in workspace.trail.events(officer) if e.action is Action.READ_AUDIT]
+    assert [(e.principal_id, e.allowed) for e in reads] == [
+        ("dpo-1", True),
+        ("lawyer-1", False),
+        ("dpo-1", True),
+    ]
 
     log = tmp_path / AUDIT_LOG
     log.write_text(log.read_text().replace('"allowed":false', '"allowed":true', 1))
     with pytest.raises(IntegrityError):
         workspace.audit.verify()
+
+
+def test_the_audit_trail_survives_the_matter_it_is_about(workspace, corpus):
+    officer = corpus.principal("dpo-1")
+    workspace.close(officer, "M-003")
+
+    closing = workspace.trail.events(officer, matter_id="M-003")[-2]
+
+    assert (closing.action, closing.purpose, closing.allowed) == (
+        Action.ERASE,
+        Purpose.RETENTION,
+        True,
+    )
+
+
+def test_a_workspace_reopens_with_the_keys_that_sealed_it(tmp_path, corpus):
+    keys = KeyRing.generate()
+    scientist = corpus.principal("scientist-1")
+    first = Workspace.create(tmp_path, corpus.matters, keys=keys)
+    first.ingest(corpus.principal("svc-pipeline"), [d.document for d in corpus.documents])
+    first.analytics.count_by(scientist, corpus.matters, Dimension.KIND, 0.6)
+    recorded = first.audit.verify()
+
+    reopened = Workspace.create(tmp_path, corpus.matters, keys=keys)
+
+    assert reopened.audit.verify() == recorded
+    assert ask(reopened, corpus, "lawyer-1", PARTIES).reidentified
+    with pytest.raises(BudgetExhausted):
+        reopened.analytics.count_by(scientist, corpus.matters, Dimension.KIND, 0.6)
+    with pytest.raises(IntegrityError):
+        Workspace.create(tmp_path, corpus.matters)
 
 
 def test_demo_runs(tmp_path, capsys):

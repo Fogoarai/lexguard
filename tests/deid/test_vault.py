@@ -66,20 +66,37 @@ def test_forgetting_before_the_value_was_ever_seen_still_blocks_it(vault):
         vault.reveal(token, "M-001")
 
 
-def test_forgetting_a_person_forgets_the_shorter_forms_of_the_name(vault):
-    full = vault.remember(PERSON, "Pedro Pablo del Río Aguirre", "M-001")
-    partial = [
-        vault.remember(PERSON, form, "M-001")
+def test_a_person_may_be_mentioned_by_any_shorter_form_of_the_name(vault, tmp_path):
+    full = vault.token_for(PERSON, "Pedro Pablo del Río Aguirre", "M-001")
+    partial = {
+        vault.token_for(PERSON, form, "M-001")
         for form in ("Pedro", "Aguirre", "Pedro Pablo", "Pablo del Río", "Río Aguirre")
-    ]
-    other = vault.remember(PERSON, "Ana Fuentes Leiva", "M-001")
+    }
+
+    mentions = vault.mention_tokens(PERSON, "Pedro Pablo del Río Aguirre", "M-001")
+
+    assert {full} | partial <= mentions
+    assert vault.token_for(PERSON, "del", "M-001") not in mentions
+    assert vault.token_for(PERSON, "Pablo del", "M-001") not in mentions
+    assert vault.token_for(PERSON, "Ana Fuentes Leiva", "M-001") not in mentions
+    assert mentions.isdisjoint(vault.mention_tokens(PERSON, "Pedro Pablo del Río Aguirre", "M-002"))
+    assert entries(tmp_path) == []
+
+
+def test_only_a_person_has_shorter_forms(vault):
+    assert vault.mention_tokens(PiiKind.RUT, "12.345.678-5", "M-001") == {
+        vault.token_for(PiiKind.RUT, "12.345.678-5", "M-001")
+    }
+    assert len(vault.mention_tokens(PiiKind.ORGANIZATION, "Agrícola Maipo S.A.", "M-001")) == 1
+
+
+def test_forgetting_one_token_leaves_the_others(vault):
+    full = vault.remember(PERSON, "Ana Fuentes Leiva", "M-001")
+    surname = vault.remember(PERSON, "Fuentes", "M-001")
 
     vault.forget(full, "M-001")
 
-    for token in [full, *partial]:
-        with pytest.raises(TokenNotFound):
-            vault.reveal(token, "M-001")
-    assert vault.reveal(other, "M-001") == "Ana Fuentes Leiva"
+    assert vault.reveal(surname, "M-001") == "Fuentes"
 
 
 def test_shredding_the_matter_kills_its_vault(vault, keys, tmp_path):

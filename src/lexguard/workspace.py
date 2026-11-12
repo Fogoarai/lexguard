@@ -1,12 +1,11 @@
-import os
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 
 from lexguard.access import Grant, Policy
-from lexguard.analytics import Aggregator
-from lexguard.audit import ChainedAuditLog
+from lexguard.analytics import Aggregator, PrivacyLedger
+from lexguard.audit import AuditTrail, ChainedAuditLog
 from lexguard.crypto import KeyRing
 from lexguard.deid import Pseudonymizer, SealedTokenVault
 from lexguard.documents import DocumentStore
@@ -15,12 +14,13 @@ from lexguard.egress import EgressGateway
 from lexguard.guard import Guard
 from lexguard.pipeline import Landing, Pipeline
 from lexguard.rag import Answerer, ExtractiveModel, HashingEmbedder, SecureIndex
-from lexguard.rights import Closure, Erasure, Identifier, SubjectRequests, close_matter
+from lexguard.rights import Closure, Erasure, Hit, Identifier, SubjectRequests, close_matter
 from lexguard.settings import Settings
 from lexguard.storage import ZonedStore
 from lexguard.training import ManifestRegistry, TrainingSets
 
 AUDIT_LOG = Path("audit", "decisions.jsonl")
+BUDGET_LEDGER = Path("analytics", "budget.jsonl")
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +31,7 @@ class Workspace:
     settings: Settings
     guard: Guard
     audit: ChainedAuditLog
+    trail: AuditTrail
     store: ZonedStore
     vault: SealedTokenVault
     deidentifier: Pseudonymizer
@@ -41,7 +42,6 @@ class Workspace:
     training: TrainingSets
     analytics: Aggregator
     subjects: SubjectRequests
-    manifests: ManifestRegistry
 
     @classmethod
     def create(
@@ -50,34 +50,43 @@ class Workspace:
         matters: Iterable[Matter],
         settings: Settings | None = None,
         grants: Collection[Grant] = (),
+        keys: KeyRing | None = None,
     ) -> Self:
+        """Pass the `keys` that sealed an existing root to reopen it; no other ring can."""
         settings = settings or Settings.from_env()
         registry = {matter.id: matter for matter in matters}
-        keys = KeyRing.generate()
+        keys = keys or KeyRing.generate()
         store = ZonedStore(root / "zones", keys)
-        audit = ChainedAuditLog(root / AUDIT_LOG, os.urandom(32))
+        documents = DocumentStore(store)
+        audit = ChainedAuditLog(root / AUDIT_LOG, keys.service_key("audit"))
         guard = Guard(Policy(registry, grants), audit)
         vault = SealedTokenVault(keys, root / "vault")
         deidentifier = Pseudonymizer(vault)
-        index = SecureIndex(HashingEmbedder(), guard)
+        index = SecureIndex(HashingEmbedder(), guard, deidentifier)
+        for matter_id in registry:
+            if matter_id in keys:
+                index.add(documents.scan(Zone.DEIDENTIFIED, matter_id))
         gateway = EgressGateway(guard, settings, scan=deidentifier.detect)
-        manifests = ManifestRegistry(root / "manifests")
+        training = TrainingSets(
+            store, ManifestRegistry(root / "manifests"), guard, residual_pii=deidentifier.detect
+        )
+        ledger = PrivacyLedger(settings.epsilon, root / BUDGET_LEDGER)
         return cls(
             matters=registry,
             settings=settings,
             guard=guard,
             audit=audit,
+            trail=AuditTrail(audit, guard),
             store=store,
             vault=vault,
             deidentifier=deidentifier,
-            pipeline=Pipeline(guard, keys, DocumentStore(store), deidentifier),
+            pipeline=Pipeline(guard, keys, documents, deidentifier),
             index=index,
             gateway=gateway,
             answerer=Answerer(index, gateway, ExtractiveModel(), deidentifier, guard),
-            training=TrainingSets(store, manifests, guard, residual_pii=deidentifier.detect),
-            analytics=Aggregator(store, guard, settings),
-            subjects=SubjectRequests(store, vault, guard, manifests),
-            manifests=manifests,
+            training=training,
+            analytics=Aggregator(store, guard, settings, ledger=ledger),
+            subjects=SubjectRequests(store, vault, guard, training),
         )
 
     def ingest(self, principal: Principal, batch: Iterable[Document]) -> Landing:
@@ -96,17 +105,21 @@ class Workspace:
         subject: Collection[Identifier],
         *,
         remove_documents: bool = False,
+        confirmed: Collection[Hit] = (),
     ) -> Erasure:
         erasure = self.subjects.erase(
-            principal, subject, list(self.matters), remove_documents=remove_documents
+            principal,
+            subject,
+            list(self.matters),
+            remove_documents=remove_documents,
+            confirmed=confirmed,
         )
-        if remove_documents:
-            for hit in erasure.hits:
-                self.index.remove(hit.matter_id, hit.document_id)
+        for hit in erasure.removed:
+            self.index.remove(hit.matter_id, hit.document_id)
         return erasure
 
     def close(self, principal: Principal, matter_id: str) -> Closure:
-        closure = close_matter(self.store, self.guard, self.manifests, principal, matter_id)
+        closure = close_matter(self.store, self.guard, self.training, principal, matter_id)
         self.vault.discard(matter_id)
         self.index.remove(matter_id)
         del self.matters[matter_id]

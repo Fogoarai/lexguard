@@ -62,6 +62,10 @@ class KeyRing:
             raise KeyUnavailable(f"no key for matter {matter_id}") from None
         return derive(unseal(self._master, wrapped, matter_id.encode()), scope)
 
+    def service_key(self, scope: str) -> bytes:
+        """A key no matter owns, for what must outlive every matter, such as the audit chain."""
+        return derive(self._master, f"service/{scope}")
+
     def shred(self, matter_id: str) -> None:
         self._wrapped.pop(matter_id, None)
         self._shredded.add(matter_id)

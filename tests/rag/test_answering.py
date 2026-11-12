@@ -61,7 +61,7 @@ def raw(corpus):
 def build(guard_with, documents, deidentifier, scan):
     def _build(policy=None, model=None, boundary=Boundary.LOCAL_ONLY) -> Answerer:
         guard = guard_with(policy or MembershipPolicy())
-        index = SecureIndex(HashingEmbedder(), guard)
+        index = SecureIndex(HashingEmbedder(), guard, deidentifier)
         index.add(documents)
         gateway = EgressGateway(guard, Settings(boundary), scan)
         return Answerer(index, gateway, model or ExtractiveModel(), deidentifier, guard)
@@ -276,15 +276,58 @@ def test_an_external_model_sees_only_pseudonymized_text(build, corpus):
     assert not has_tokens(answer.text)
 
 
-def test_a_question_that_names_a_person_does_not_leave_the_firm(build, corpus):
+def named(corpus):
+    person = next(span.text for span in corpus.documents[0].spans if span.kind is PiiKind.PERSON)
+    return person, f"¿Qué renta paga {person}?"
+
+
+def test_a_lawyer_can_ask_about_a_person_by_name(build, corpus):
+    person, _ = named(corpus)
+
+    answer = build().answer(
+        f"¿Qué cédula de identidad tiene {person}?",
+        corpus.principal("lawyer-1"),
+        ADVICE,
+        matter_id="M-001",
+    )
+
+    assert answer.reidentified
+    assert person in answer.text
+    assert not has_tokens(answer.text)
+
+
+def test_a_named_person_leaves_the_firm_only_as_the_matter_s_token(build, corpus):
+    person, question = named(corpus)
     model = FakeModel(echo, ModelLocation.EXTERNAL)
     answerer = build(model=model, boundary=Boundary.DEIDENTIFIED_EGRESS)
-    person = next(span.text for span in corpus.documents[0].spans if span.kind is PiiKind.PERSON)
+
+    answerer.answer(question, corpus.principal("lawyer-1"), ADVICE, matter_id="M-001")
+
+    (prompt,) = model.prompts
+    asked, passages = parse(prompt)
+    assert person not in prompt
+    (token,) = tokens.find(asked)
+    assert any(token.group() in passage for passage in passages)
+
+
+def test_a_named_person_blocks_the_prompt_of_who_must_keep_pseudonyms(build, corpus):
+    _, question = named(corpus)
+    model = FakeModel(echo, ModelLocation.EXTERNAL)
+    answerer = build(membership(keep_pseudonyms), model, Boundary.DEIDENTIFIED_EGRESS)
 
     with pytest.raises(EgressBlocked, match=r"residual PII in outbound prompt: \d person$"):
-        answerer.answer(
-            f"¿Qué renta paga {person}?", corpus.principal("lawyer-1"), ADVICE, matter_id="M-001"
-        )
+        answerer.answer(question, corpus.principal("paralegal-1"), ADVICE, matter_id="M-001")
+
+    assert model.prompts == []
+
+
+def test_a_named_person_blocks_a_prompt_that_spans_matters(build, corpus):
+    _, question = named(corpus)
+    model = FakeModel(echo, ModelLocation.EXTERNAL)
+    answerer = build(model=model, boundary=Boundary.DEIDENTIFIED_EGRESS)
+
+    with pytest.raises(EgressBlocked, match=r"residual PII in outbound prompt: \d person$"):
+        answerer.answer(question, corpus.principal("lawyer-1"), ADVICE, k=40)
 
     assert model.prompts == []
 

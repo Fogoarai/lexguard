@@ -62,10 +62,10 @@ class Aggregator:
     guard: Guard
     settings: Settings = field(default_factory=Settings)
     rng: np.random.Generator = field(default_factory=np.random.default_rng)
-    ledger: PrivacyLedger = field(init=False)
+    ledger: PrivacyLedger | None = None
 
     def __post_init__(self) -> None:
-        self.ledger = PrivacyLedger(self.settings.epsilon)
+        self.ledger = self.ledger or PrivacyLedger(self.settings.epsilon)
 
     def count_by(
         self, principal: Principal, matters: Iterable[Matter], dimension: Dimension, epsilon: float
@@ -80,13 +80,14 @@ class Aggregator:
                     compartments.add((matter.id, sensitivity))
         if not compartments:
             raise AccessDenied("no compartment admits this aggregate")
-        self.ledger.charge(principal.id, f"count by {dimension}", epsilon)
+        matters = sorted({matter_id for matter_id, _ in compartments})
+        self.ledger.charge(principal.id, f"count by {dimension}", epsilon, matters)
 
         documents = DocumentStore(self.store)
         group = _GROUP[dimension]
         sizes = Counter(
             group(document)
-            for matter_id in sorted({matter_id for matter_id, _ in compartments})
+            for matter_id in matters
             for document in documents.scan(Zone.DEIDENTIFIED, matter_id)
             if (matter_id, document.sensitivity) in compartments
         )

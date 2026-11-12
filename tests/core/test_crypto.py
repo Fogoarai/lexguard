@@ -56,3 +56,13 @@ def test_shredded_matter_cannot_be_read_or_re_enrolled(keys):
         keys.key_for("M-001", "raw")
     with pytest.raises(KeyUnavailable):
         keys.enroll("M-001")
+
+
+def test_service_key_belongs_to_the_ring_and_to_no_matter(keys):
+    audit = keys.service_key("audit")
+
+    assert audit == keys.service_key("audit")
+    assert audit != keys.service_key("ledger")
+    assert audit != KeyRing.generate().service_key("audit")
+    keys.shred("M-001")
+    assert keys.service_key("audit") == audit

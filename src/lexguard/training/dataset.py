@@ -131,6 +131,20 @@ class TrainingSets:
             examples += shard
         return TrainingSet(manifest, tuple(examples))
 
+    def retract(
+        self, used: Callable[[str, str], bool], reason: str, *, drop_copies: bool = False
+    ) -> tuple[str, ...]:
+        """`ports.DatasetRegistry`: a copy is the whole shard of a matter that held a match."""
+        marked = self.manifests.taint(lambda e: used(e.matter_id, e.document_id), reason)
+        if drop_copies:
+            for manifest in marked:
+                matters = {
+                    e.matter_id for e in manifest.entries if used(e.matter_id, e.document_id)
+                }
+                for matter_id in matters:
+                    self.store.delete(Zone.TRAINING, matter_id, shard_name(manifest.dataset_id))
+        return tuple(manifest.dataset_id for manifest in marked)
+
     def _compartments(
         self, principal: Principal, matter_id: str, dataset_id: str, exclusions: list[Exclusion]
     ) -> set[Sensitivity]:

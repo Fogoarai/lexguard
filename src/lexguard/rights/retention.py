@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 from lexguard.domain import AccessRequest, Action, Principal, Purpose, Resource, Zone
 from lexguard.errors import KeyUnavailable, LexguardError
 from lexguard.guard import Guard
+from lexguard.ports import DatasetRegistry
 from lexguard.storage import ZonedStore
-from lexguard.training.manifest import ManifestRegistry
 
 _PROBE = "probe"
 
@@ -26,7 +26,7 @@ class Closure:
 def close_matter(
     store: ZonedStore,
     guard: Guard,
-    manifests: ManifestRegistry,
+    datasets: DatasetRegistry,
     principal: Principal,
     matter_id: str,
 ) -> Closure:
@@ -38,16 +38,17 @@ def close_matter(
     resource = Resource(Zone.RAW, matter_id)
     guard.authorize(AccessRequest(principal, Action.ERASE, Purpose.RETENTION, resource))
 
-    destroyed = {zone: len(store.names(zone, matter_id)) for zone in Zone}
-    tainted = manifests.taint(lambda entry: entry.matter_id == matter_id, "matter closed")
+    zones = Zone.of_matters()
+    destroyed = {zone: len(store.names(zone, matter_id)) for zone in zones}
+    tainted = datasets.retract(lambda owner, _: owner == matter_id, "matter closed")
     store.purge(matter_id)
-    if readable := [zone for zone in Zone if _readable(store, zone, matter_id)]:
+    if readable := [zone for zone in zones if _readable(store, zone, matter_id)]:
         raise ClosureIncomplete(f"matter {matter_id} still readable in {', '.join(readable)}")
     return Closure(
         matter_id=matter_id,
         closed_at=datetime.now(UTC),
         destroyed=destroyed,
-        tainted_datasets=tuple(manifest.dataset_id for manifest in tainted),
+        tainted_datasets=tuple(tainted),
     )
 
 

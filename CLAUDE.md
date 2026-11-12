@@ -24,7 +24,8 @@ package; if the core is missing something, report it instead.
 
 ## Guard requests
 
-Every feature asks the `Guard` with these shapes; `Resource.matter_id` is always set.
+Every feature asks the `Guard` with these shapes. `Resource.matter_id` is always set, except
+to read the audit trail, which no matter scopes.
 
 | Operation | Action | Zone | Purpose |
 | --- | --- | --- | --- |
@@ -37,7 +38,9 @@ Every feature asks the `Guard` with these shapes; `Resource.matter_id` is always
 | Aggregate | `AGGREGATE` | `DEIDENTIFIED` | `ANALYTICS` |
 | Locate a data subject | `READ_DEIDENTIFIED` | `DEIDENTIFIED` | `DATA_SUBJECT_REQUEST` |
 | Erase a data subject | `ERASE` | `DEIDENTIFIED` | `DATA_SUBJECT_REQUEST` |
+| Erase a retained raw copy | `ERASE` | `RAW` | `DATA_SUBJECT_REQUEST` |
 | Close a matter | `ERASE` | `RAW` | `RETENTION` |
+| Read the audit trail | `READ_AUDIT` | `AUDIT` | `SECURITY_AUDIT` |
 
 `DATA_SUBJECT_REQUEST`, `SECURITY_AUDIT` and `RETENTION` are statutory: they do not need to
 appear in `Matter.purposes`.

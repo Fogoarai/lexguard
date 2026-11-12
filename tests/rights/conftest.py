@@ -45,6 +45,11 @@ class MemoryVault:
             self._values[matter_id, token] = value
         return token
 
+    def mention_tokens(self, kind: PiiKind, value: str, matter_id: str) -> set[str]:
+        forms = {value, *value.split()} if kind is PiiKind.PERSON else {value}
+        key = self._keys.key_for(matter_id, "pseudonym")
+        return {tokens.pseudonym(kind, form, key) for form in forms}
+
     def reveal(self, token: str, matter_id: str) -> str:
         return self._values[matter_id, token]
 
@@ -150,9 +155,9 @@ def scripted():
 
 
 @pytest.fixture
-def requests(store, vault, manifests, audit):
+def requests(store, vault, training_sets, audit):
     def _requests(policy=None):
-        return SubjectRequests(store, vault, Guard(policy or AllowAll(), audit), manifests)
+        return SubjectRequests(store, vault, Guard(policy or AllowAll(), audit), training_sets)
 
     return _requests
 

@@ -154,11 +154,42 @@ def test_erasing_a_person_also_silences_partial_mentions(pseudonymizer, vault, c
         text="Para: Carolina Sanhueza Parra\n\nEstimada Carolina: la señora Sanhueza firmó.",
     )
     result = pseudonymizer.pseudonymize(document)
-    vault.forget(vault.token_for(PiiKind.PERSON, "Carolina Sanhueza Parra", "M-001"), "M-001")
+    for token in vault.mention_tokens(PiiKind.PERSON, "Carolina Sanhueza Parra", "M-001"):
+        vault.forget(token, "M-001")
     restored = pseudonymizer.reidentify(result.text, "M-001")
     assert restored == result.text
     assert "Carolina" not in restored
     assert "Sanhueza" not in restored
+
+
+def test_tokenize_swaps_in_the_tokens_a_matter_holds_and_records_nothing(
+    pseudonymizer, vault, corpus, tmp_path
+):
+    labeled = corpus.documents[0]
+    person = next(span.text for span in labeled.spans if span.kind is PiiKind.PERSON)
+    stored = pseudonymizer.pseudonymize(labeled.document)
+    entries = sorted((tmp_path / "vault").rglob("*.token"))
+    question = f"¿Qué domicilio tiene {person}?"
+
+    asked = pseudonymizer.tokenize(question, "M-001")
+
+    token = vault.token_for(PiiKind.PERSON, person, "M-001")
+    assert asked == question.replace(person, token)
+    assert token in stored.text
+    assert sorted((tmp_path / "vault").rglob("*.token")) == entries
+
+
+def test_tokenize_leaves_what_the_matter_cannot_reveal_as_written(pseudonymizer, vault, corpus):
+    labeled = corpus.documents[0]
+    person = next(span.text for span in labeled.spans if span.kind is PiiKind.PERSON)
+    pseudonymizer.pseudonymize(labeled.document)
+    known = f"¿Qué domicilio tiene {person}?"
+    unknown = "¿Qué domicilio tiene Rigoberto Zamorano Pinto?"
+
+    assert pseudonymizer.tokenize(unknown, "M-001") == unknown
+    assert pseudonymizer.tokenize(known, "M-002") == known
+    vault.forget(vault.token_for(PiiKind.PERSON, person, "M-001"), "M-001")
+    assert pseudonymizer.tokenize(known, "M-001") == known
 
 
 def test_tokens_of_another_matter_are_left_alone(pseudonymizer, corpus):

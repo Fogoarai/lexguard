@@ -1,5 +1,5 @@
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 
 from lexguard import tokens
@@ -26,14 +26,21 @@ class Pseudonymizer:
         return detect(text, self._recognizers)
 
     def pseudonymize(self, document: Document) -> Document:
-        pieces: list[str] = []
-        cursor = 0
-        for span in self.detect(document.text):
-            token = self._vault.remember(span.kind, span.text, document.matter_id)
-            pieces += [document.text[cursor : span.start], token]
-            cursor = span.end
-        pieces.append(document.text[cursor:])
-        return replace(document, text="".join(pieces))
+        def token(span: PiiSpan) -> str:
+            return self._vault.remember(span.kind, span.text, document.matter_id)
+
+        return replace(document, text=self._substitute(document.text, token))
+
+    def tokenize(self, text: str, matter_id: str) -> str:
+        def known_token(span: PiiSpan) -> str:
+            token = self._vault.token_for(span.kind, span.text, matter_id)
+            try:
+                self._vault.reveal(token, matter_id)
+            except TokenNotFound:
+                return span.text
+            return token
+
+        return self._substitute(text, known_token)
 
     def reidentify(self, text: str, matter_id: str) -> str:
         """Tokens that are unknown to the matter or were forgotten stay as they are."""
@@ -45,3 +52,12 @@ class Pseudonymizer:
                 return match.group()
 
         return tokens.TOKEN.sub(restore, text)
+
+    def _substitute(self, text: str, replacement: Callable[[PiiSpan], str]) -> str:
+        pieces: list[str] = []
+        cursor = 0
+        for span in self.detect(text):
+            pieces += [text[cursor : span.start], replacement(span)]
+            cursor = span.end
+        pieces.append(text[cursor:])
+        return "".join(pieces)

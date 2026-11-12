@@ -27,7 +27,7 @@ aggregates, erases a person, closes a matter and verifies the audit chain.
 | Aggregates single out a person or a small matter | Minimum group size, Laplace noise, privacy budget ledger | `analytics/` |
 | Stolen disk or bucket | Envelope encryption, one root key per matter, one derived key per zone | `crypto.py`, `storage.py` |
 | An engagement ends or a data subject asks for erasure | Crypto-shredding per matter, irreversible tokens, tainted training manifests | `rights/` |
-| Someone quietly edits the access history | HMAC-chained audit log written by a single enforcement point | `guard.py`, `audit/` |
+| Someone quietly edits or browses the access history | HMAC-chained audit log written by a single enforcement point; reading it is a guarded, recorded request | `guard.py`, `audit/` |
 
 ## Data flow
 
@@ -62,7 +62,7 @@ which matter, zone and sensitivity) followed by an audit record, before anything
 | `domain.py`, `ports.py`, `guard.py`, `settings.py` | Shared vocabulary, protocols, enforcement point, trust boundary |
 | `crypto.py`, `storage.py`, `documents.py` | Per-matter envelope encryption, zoned encrypted store, crypto-shredding |
 | `deid/` | PII recognizers for Chilean legal text, per-matter pseudonymizer, sealed token vault |
-| `access/`, `audit/` | Declarative purpose-based policy, ethical walls, dual-control grants, chained log |
+| `access/`, `audit/` | Declarative purpose-based policy, ethical walls, dual-control grants, chained log, guarded reads of it |
 | `rag/`, `egress/` | Token-safe chunking, local embedder, security-trimmed index, cited answers, model gateway |
 | `training/`, `analytics/`, `rights/` | Dataset manifests, DP classifier, memorization test, noisy aggregates, erasure and closure |
 | `pipeline.py`, `workspace.py`, `demo.py` | Ingestion, composition root, end-to-end walkthrough |
@@ -82,10 +82,18 @@ which matter, zone and sensitivity) followed by an audit record, before anything
   shredding the root makes every copy of the matter unreadable, backups included.
 - **Trim, then rank.** The index drops every compartment the caller is denied before it
   scores anything, and scores use no corpus statistics, so a denied compartment cannot leak
-  through ranking.
+  through ranking. The embedder reads every chunk, so only a local one is accepted.
+- **A name in a question becomes a token only for who may read it.** A lawyer who asks
+  about a person by name is matched against that matter's tokens. For anyone else the
+  rewrite would be a way to test which token a name has, so their question is matched as
+  written, and a question that still carries a name never reaches a model outside the firm.
 - **Erasure is irreversible forgetting.** A data subject's tokens are tombstoned in the
   vault, so nobody can re-identify them again, and every training set that used their
-  documents is tainted until rebuilt.
+  documents is tainted until rebuilt. A document that gives only part of the name
+  ("la señora Fuentes") loses its tokens too, but is removed only once a person confirms
+  it is not a namesake's.
+- **The privacy budget belongs to the data.** Each matter has its own epsilon, spent by
+  every query that reads it whoever asks, and kept on disk so a restart does not refill it.
 - **The trust boundary is a setting.** `LEXGUARD_BOUNDARY` is `local_only`, `private_cloud`
   or `deidentified_egress`. The default is the strictest.
 
@@ -109,12 +117,16 @@ mechanics: the canary test flags a secret planted once (10 of 10 bits) and not a
 
 ## Limits of the concept
 
-- `KeyRing` lives in memory and stands in for a KMS or HSM; unwrap calls should be audited there.
+- `KeyRing` lives in memory and stands in for a KMS or HSM; unwrap calls should be audited
+  there. A workspace reopens only with the ring that sealed it.
 - The policy trusts the `Principal` it is given. Identity, roles and matter assignment must
   come from the firm's identity provider and matter-intake system.
 - The audit chain detects edits, removals and reordering, but a cleanly truncated tail needs
   the head anchored outside the file.
-- The serving index is in memory, and training manifests are plain files without a signature.
+- The serving index is in memory and rebuilt on open. Training manifests and the privacy
+  budget ledger are plain files without a signature.
+- Only the privacy officer reads the audit trail; there is no separate auditor role.
+- A hosted embedder would need an egress path of its own; today it is refused.
 - DP-SGD reports its parameters and computes no epsilon; an established accountant must.
 - There is no connector to a real lake, no concurrency control and no key rotation.
 

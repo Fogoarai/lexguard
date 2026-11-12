@@ -6,6 +6,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
+from lexguard.settings import ModelLocation
 from lexguard.tokens import TOKEN
 
 _TERM = re.compile(rf"{TOKEN.pattern}|\w+")
@@ -53,6 +54,9 @@ class HashingEmbedder:
     A vector depends only on its own text, never on corpus statistics, so indexing one
     compartment cannot change how another is scored.
     """
+
+    name = "hashing"
+    location = ModelLocation.LOCAL
 
     def __init__(self, dimensions: int = 4096) -> None:
         self.dimensions = dimensions

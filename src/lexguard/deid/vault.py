@@ -22,8 +22,7 @@ class SealedTokenVault:
 
     Entries are sealed with the matter's "vault" key, so they die with the matter's root key.
     A forgotten token keeps an empty entry, which stops its value from ever being recorded
-    again. Forgetting a person also forgets every shorter form of the name, because partial
-    mentions of that person carry those tokens.
+    again.
     """
 
     def __init__(self, keys: KeyRing, root: Path) -> None:
@@ -34,6 +33,15 @@ class SealedTokenVault:
         """The token this value has in the matter. Computes only; nothing is stored."""
         key = self._keys.key_for(matter_id, "pseudonym")
         return tokens.pseudonym(kind, canonicalize(kind, value), key)
+
+    def mention_tokens(self, kind: PiiKind, value: str, matter_id: str) -> set[str]:
+        """For a person, also the tokens of every shorter form of the name.
+
+        A partial mention ("la señora Fuentes") carries one of those, and so does a
+        namesake's: the text cannot tell them apart.
+        """
+        forms = [value, *_shorter_forms(value)] if kind is PiiKind.PERSON else [value]
+        return {self.token_for(kind, form, matter_id) for form in forms}
 
     def remember(self, kind: PiiKind, value: str, matter_id: str) -> str:
         token = self.token_for(kind, value, matter_id)
@@ -48,11 +56,7 @@ class SealedTokenVault:
         return value
 
     def forget(self, token: str, matter_id: str) -> None:
-        value = self._read(token, matter_id)
         self._write(token, matter_id, _FORGOTTEN)
-        if value and tokens.kind_of(token) is PiiKind.PERSON:
-            for form in _shorter_forms(value):
-                self._write(self.token_for(PiiKind.PERSON, form, matter_id), matter_id, _FORGOTTEN)
 
     def discard(self, matter_id: str) -> None:
         """Delete a matter's entries. Once its key is shredded they are unreadable anyway."""

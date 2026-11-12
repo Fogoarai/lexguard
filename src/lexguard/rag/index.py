@@ -1,5 +1,5 @@
-from collections.abc import Iterable
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import NamedTuple, Self
 
@@ -9,6 +9,7 @@ from lexguard.domain import (
     AccessRequest,
     Action,
     Chunk,
+    Decision,
     Document,
     Obligation,
     Principal,
@@ -17,9 +18,11 @@ from lexguard.domain import (
     Sensitivity,
     Zone,
 )
+from lexguard.errors import EgressBlocked
 from lexguard.guard import Guard
-from lexguard.ports import Embedder
+from lexguard.ports import Deidentifier, Embedder
 from lexguard.rag.chunking import split
+from lexguard.settings import ModelLocation
 
 
 class Compartment(NamedTuple):
@@ -43,10 +46,14 @@ class Hit:
 
 @dataclass(frozen=True, slots=True)
 class Retrieval:
-    """`obligations` are those of the retrieve decisions that admitted the hits."""
+    """`obligations` are those of the retrieve decisions that admitted the hits.
+
+    `wording` is the question as each matter of the hits was asked it.
+    """
 
     hits: tuple[Hit, ...]
     obligations: frozenset[Obligation]
+    wording: Mapping[str, str] = field(default_factory=dict)
 
     @property
     def compartments(self) -> list[Compartment]:
@@ -59,17 +66,31 @@ class SecureIndex:
     A score is the cosine between the query and one chunk, with no corpus statistics, so a
     compartment the caller is denied cannot change the scores, order or number of results.
     Chunks scoring below `min_score` are not released at all; the floor depends on the embedder.
+
+    The embedder reads every chunk, privileged ones included, and every question as asked,
+    with no policy decision in between, so only a local one is accepted.
+
+    With a `deidentifier`, a matter whose identities the caller may read in every
+    compartment is asked the question in its own tokens, so naming a person finds their
+    passages. Anyone else's question is matched as asked: a rewrite would let them test
+    which token a name has, or whether a compartment closed to them knows the name.
     """
 
     def __init__(
         self,
         embedder: Embedder,
         guard: Guard,
+        deidentifier: Deidentifier | None = None,
         max_chars: int = 500,
         min_score: float = 0.05,
     ) -> None:
+        if embedder.location is not ModelLocation.LOCAL:
+            raise EgressBlocked(
+                f"embedder {embedder.name} is {embedder.location}: it would read every chunk"
+            )
         self._embedder = embedder
         self._guard = guard
+        self._deidentifier = deidentifier
         self._max_chars = max_chars
         self._min_score = min_score
         self._chunks: list[Chunk] = []
@@ -132,7 +153,11 @@ class SecureIndex:
         if not rows or k < 1:
             return Retrieval((), frozenset())
 
-        scores = self._vectors[rows] @ _unit(self._embedder.embed([question]))[0]
+        wording = self._wording(question, decisions)
+        wordings = list(dict.fromkeys(wording.values()))
+        queries = _unit(self._embedder.embed(wordings))
+        asked = [wordings.index(wording[self._chunks[row].matter_id]) for row in rows]
+        scores = np.einsum("ij,ij->i", self._vectors[rows], queries[asked])
         best = np.argsort(-scores, kind="stable")[:k]
         hits = tuple(
             Hit(self._chunks[rows[i]], float(scores[i]))
@@ -142,7 +167,21 @@ class SecureIndex:
         obligations = frozenset().union(
             *(decisions[Compartment.of(hit.chunk)].obligations for hit in hits)
         )
-        return Retrieval(hits, obligations)
+        matters = {hit.chunk.matter_id for hit in hits}
+        return Retrieval(hits, obligations, {matter: wording[matter] for matter in matters})
+
+    def _wording(self, question: str, decisions: Mapping[Compartment, Decision]) -> dict[str, str]:
+        closed = {
+            compartment.matter_id
+            for compartment, decision in decisions.items()
+            if not decision.allowed or Obligation.KEEP_PSEUDONYMS in decision.obligations
+        }
+        return {
+            matter_id: question
+            if self._deidentifier is None or matter_id in closed
+            else self._deidentifier.tokenize(question, matter_id)
+            for matter_id in sorted({compartment.matter_id for compartment in decisions})
+        }
 
 
 def _unit(matrix: np.ndarray) -> np.ndarray:

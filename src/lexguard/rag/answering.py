@@ -86,7 +86,7 @@ class Answerer:
         context = [hit.chunk for hit in retrieval.hits]
         reply = self.gateway.complete(
             self.model,
-            build(question, [chunk.text for chunk in context]),
+            build(_wording(question, retrieval), [chunk.text for chunk in context]),
             principal=principal,
             purpose=purpose,
             compartments=retrieval.compartments,
@@ -138,6 +138,18 @@ class Answerer:
             return self.deidentifier.reidentify(token, owner[token]) if token in owner else token
 
         return tokens.TOKEN.sub(original, text)
+
+
+def _wording(question: str, retrieval: Retrieval) -> str:
+    """The question as the context's matter was asked it, so the model can match a name.
+
+    A context drawn from several matters gets the question as written: their tokens side by
+    side would link what the per-matter keys keep apart.
+    """
+    if len(retrieval.wording) != 1:
+        return question
+    (asked,) = retrieval.wording.values()
+    return asked
 
 
 def _cite(reply: str, context: Sequence[Chunk]) -> tuple[str, list[Chunk]]:

@@ -10,6 +10,10 @@ STATUTORY = frozenset(Purpose) - ENGAGEMENT
 
 MATTER_BOUND = frozenset({Role.LAWYER, Role.PARALEGAL})
 
+# The audit trail spans every matter, closed ones included, so no matter, wall or grant
+# scopes a read of it.
+FIRM_WIDE = frozenset({Action.READ_AUDIT})
+
 
 @dataclass(frozen=True, slots=True)
 class Rule:
@@ -83,6 +87,20 @@ PERMISSIONS: tuple[Rule, ...] = (
         roles={Role.PRIVACY_OFFICER},
         actions={Action.READ_DEIDENTIFIED, Action.ERASE},
         zones={Zone.DEIDENTIFIED},
+        purposes={Purpose.DATA_SUBJECT_REQUEST},
+    ),
+    Rule(
+        "officer-reviews-audit-trail",
+        roles={Role.PRIVACY_OFFICER},
+        actions={Action.READ_AUDIT},
+        zones={Zone.AUDIT},
+        purposes={Purpose.SECURITY_AUDIT},
+    ),
+    Rule(
+        "officer-erases-retained-raw-copy",
+        roles={Role.PRIVACY_OFFICER},
+        actions={Action.ERASE},
+        zones={Zone.RAW},
         purposes={Purpose.DATA_SUBJECT_REQUEST},
     ),
     Rule(

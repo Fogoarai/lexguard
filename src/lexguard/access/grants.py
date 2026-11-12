@@ -14,10 +14,11 @@ from lexguard.domain import (
 
 @dataclass(frozen=True, slots=True)
 class Grant:
-    """Time-bound exception that stands in for a missing role permission or matter assignment.
+    """Time-bound loan of something a role may already do, to a principal who may not.
 
-    Dual control: the approver is a privacy officer other than the grantee and outside the
-    matter's ethical wall. A grant never reaches privileged content.
+    It stands in for the role or the matter assignment, never for the action's zone or
+    purpose. Dual control: the approver is a privacy officer other than the grantee and
+    outside the matter's ethical wall. A grant never reaches privileged content.
     """
 
     principal_id: str
@@ -48,6 +49,8 @@ class Grant:
             or approver.id in matter.walled_off
         ):
             return f"grant-dual-control: {approver.id} cannot approve this grant"
+        if request.at.utcoffset() is None:
+            return "grant-time-unverifiable: the request time carries no timezone"
         if request.at >= self.expires_at:
             return f"grant-expired: lapsed at {self.expires_at.isoformat()}"
         if request.resource.sensitivity is Sensitivity.PRIVILEGED:

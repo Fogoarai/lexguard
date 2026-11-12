@@ -27,8 +27,10 @@ class ChainedAuditLog:
 
     A record holds its sequence number, the MAC of the previous record and its own MAC
     over both and the event, so it cannot be altered, dropped or moved without the key.
-    Detail values that are not identifier-like are stored as keyed fingerprints, never as
-    text. One writer per file.
+    A line counts as altered unless it is byte for byte what was written, so an edit
+    that still parses to the same record is caught too. Detail names and values that are
+    not identifier-like are stored as keyed fingerprints, never as text. One writer per
+    file.
     """
 
     def __init__(self, path: Path, key: bytes) -> None:
@@ -42,8 +44,8 @@ class ChainedAuditLog:
     def record(self, event: AuditEvent) -> None:
         body = {"seq": self._count + 1, "prev": self._head, "event": self._encode(event)}
         mac = self._mac(_canonical(body))
-        with self._path.open("a", encoding="utf-8") as file:
-            file.write(_canonical(body | {"mac": mac}) + "\n")
+        with self._path.open("ab") as file:
+            file.write(_line(body, mac))
         self._count, self._head = self._count + 1, mac
 
     def verify(self) -> int:
@@ -78,7 +80,9 @@ class ChainedAuditLog:
         return "hmac:" + self._mac(f"detail\x1f{text}")[:32]
 
     def _encode(self, event: AuditEvent) -> dict[str, Any]:
-        detail = {name: self._scrub(str(value)) for name, value in event.detail.items()}
+        detail = {
+            self._scrub(str(name)): self._scrub(str(value)) for name, value in event.detail.items()
+        }
         return asdict(event) | {"at": event.at.isoformat(), "detail": detail}
 
     def _scrub(self, value: str) -> str:
@@ -102,10 +106,10 @@ class ChainedAuditLog:
                 try:
                     fields = json.loads(line)
                     mac = fields.pop("mac")
-                    genuine = line.endswith(b"\n") and hmac.compare_digest(
+                    genuine = hmac.compare_digest(
                         mac, self._mac(_canonical(fields))
-                    )
-                except (ValueError, TypeError, AttributeError, KeyError):
+                    ) and line == _line(fields, mac)
+                except (ValueError, TypeError, AttributeError, KeyError, RecursionError):
                     genuine = False
                 if not genuine:
                     raise IntegrityError(f"audit record {position} was altered")
@@ -120,6 +124,10 @@ class ChainedAuditLog:
 
 def _canonical(fields: dict[str, Any]) -> str:
     return json.dumps(fields, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _line(body: dict[str, Any], mac: str) -> bytes:
+    return f"{_canonical(body | {'mac': mac})}\n".encode()
 
 
 def _decode(fields: dict[str, Any]) -> AuditEvent:

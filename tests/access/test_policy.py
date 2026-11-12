@@ -5,7 +5,7 @@ from itertools import product
 import pytest
 
 from lexguard.access import Grant, Policy
-from lexguard.access.rules import ENGAGEMENT, PERMISSIONS, PROHIBITIONS
+from lexguard.access.rules import EGRESS_READS, ENGAGEMENT, PERMISSIONS, PROHIBITIONS
 from lexguard.domain import (
     AccessRequest,
     Action,
@@ -314,6 +314,42 @@ def test_egress_cannot_be_granted_on_its_own():
     assert not ask("lawyer-3", PROMPT, grants=(grant("lawyer-3", PROMPT),)).allowed
 
 
+def test_grant_lends_only_what_some_role_may_already_do():
+    reidentify_for_training = (Action.REIDENTIFY, Zone.SERVING, Purpose.MODEL_DEVELOPMENT)
+    erase_raw_for_subject = (Action.ERASE, Zone.RAW, Purpose.DATA_SUBJECT_REQUEST)
+    read_raw_for_audit = (Action.READ_RAW, Zone.RAW, Purpose.SECURITY_AUDIT)
+
+    for who, shape, matter in [
+        ("lawyer-1", reidentify_for_training, "M-001"),
+        ("engineer-1", erase_raw_for_subject, "M-001"),
+        ("engineer-1", read_raw_for_audit, "M-002"),
+    ]:
+        decision = ask(who, shape, matter, grants=(grant(who, shape, matter),))
+        assert not decision.allowed
+        assert decision.reason.startswith("grant-exceeds-roles")
+
+    assert ask(
+        "lawyer-1", reidentify_for_training, grants=(grant("lawyer-1", reidentify_for_training),)
+    ).reason == (
+        "grant-exceeds-roles: no role may reidentify in the serving zone for model_development"
+    )
+
+
+def test_security_audit_opens_no_content_even_under_a_grant():
+    for who, action, zone in product(CAST, Action, Zone):
+        shape = (action, zone, Purpose.SECURITY_AUDIT)
+        assert not ask(who, shape, grants=(grant(who, shape),)).allowed
+
+
+def test_grant_is_not_honored_at_a_time_without_a_timezone():
+    naive = datetime(2026, 12, 1, 9)
+    break_glass = grant("engineer-1", READ_RAW)
+
+    decision = ask("engineer-1", READ_RAW, grants=(break_glass,), at=naive)
+    assert decision.reason.startswith("grant-time-unverifiable")
+    assert ask("lawyer-1", RETRIEVE, at=naive).allowed
+
+
 def test_grant_added_to_a_live_collection_applies_at_once():
     grants: set[Grant] = set()
     policy = Policy(MATTERS, grants)
@@ -362,8 +398,10 @@ RULES = {rule.name for rule in PERMISSIONS + PROHIBITIONS} | {
     "default-deny",
     "egress-zone",
     "time-bound-grant",
+    "grant-exceeds-roles",
     "grant-dual-control",
     "grant-expired",
+    "grant-time-unverifiable",
     "grant-excludes-privileged",
 }
 
@@ -394,6 +432,12 @@ def test_invariants_hold_for_every_request_whatever_grants_the_principal_holds()
         assert action is not Action.REIDENTIFY or role is Role.LAWYER, case
         if role is Role.DATA_SCIENTIST:
             assert zone is not Zone.RAW, case
+        if "time-bound-grant" in decision.reason:
+            performed = EGRESS_READS[zone] if action is Action.EGRESS else action
+            assert any(
+                performed in rule.actions and zone in rule.zones and purpose in rule.purposes
+                for rule in PERMISSIONS
+            ), case
         if sensitivity is Sensitivity.PRIVILEGED:
             assert role not in {Role.PARALEGAL, Role.DATA_SCIENTIST}, case
             assert "time-bound-grant" not in decision.reason, case

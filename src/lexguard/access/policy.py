@@ -79,10 +79,16 @@ class Policy:
         )
 
     def _granted(self, request: AccessRequest, matter: Matter) -> Decision | None:
+        named = [grant for grant in self.grants if grant.names(request)]
+        if not named:
+            return None
+        if not any(rule.describes(request) for rule in PERMISSIONS):
+            return _deny(
+                f"grant-exceeds-roles: no role may {request.action} "
+                f"in the {request.resource.zone} zone for {request.purpose}"
+            )
         refusals = []
-        for grant in self.grants:
-            if not grant.names(request):
-                continue
+        for grant in named:
             refusal = grant.refusal(request, matter)
             if refusal is None:
                 return _allow(
@@ -90,7 +96,7 @@ class Policy:
                     f"until {grant.expires_at.isoformat()}"
                 )
             refusals.append(refusal)
-        return _deny(min(refusals)) if refusals else None
+        return _deny(min(refusals))
 
 
 def _allow(reason: str, *obligations: Obligation) -> Decision:

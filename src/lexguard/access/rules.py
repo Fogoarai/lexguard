@@ -23,9 +23,12 @@ class Rule:
     sensitivities: Set[Sensitivity] = frozenset(Sensitivity)
 
     def covers(self, request: AccessRequest) -> bool:
+        return request.principal.role in self.roles and self.describes(request)
+
+    def describes(self, request: AccessRequest) -> bool:
+        """Whether the request has this rule's shape, whoever is asking."""
         return (
-            request.principal.role in self.roles
-            and request.action in self.actions
+            request.action in self.actions
             and request.resource.zone in self.zones
             and request.purpose in self.purposes
             and request.resource.sensitivity in self.sensitivities
@@ -115,8 +118,7 @@ PROHIBITIONS: tuple[Rule, ...] = (
     ),
 )
 
-# A grant changes who may act, never where: an action stays in the zones where some
-# role already performs it.
+# Where each action takes place: the zones in which some role performs it.
 ZONES: Mapping[Action, frozenset[Zone]] = {
     action: frozenset(zone for rule in PERMISSIONS if action in rule.actions for zone in rule.zones)
     for action in Action
